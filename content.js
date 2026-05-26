@@ -525,7 +525,7 @@
     function scanForTimeAgo(root = document) {
       if (!config.enableUpdateIndicator) return;
       if (!root || !root.querySelectorAll) return;
-      root.querySelectorAll('sn-time-ago').forEach(ensureUpdateIndicator);
+      root.querySelectorAll('.vtb-card-component-wrapper sn-time-ago').forEach(ensureUpdateIndicator);
     }
 
     function annotateLastUpdated(card) {
@@ -718,10 +718,16 @@
           mutation.addedNodes.forEach((node) => {
             if (node.nodeType === Node.ELEMENT_NODE) {
               if (config.enableUpdateIndicator && node.matches && node.matches('sn-time-ago')) {
-                ensureUpdateIndicator(node);
+                if (node.closest('.vtb-card-component-wrapper')) {
+                  ensureUpdateIndicator(node);
+                }
               }
               if (config.enableUpdateIndicator) {
-                node.querySelectorAll?.('sn-time-ago').forEach(ensureUpdateIndicator);
+                node.querySelectorAll?.('sn-time-ago').forEach((el) => {
+                  if (el.closest('.vtb-card-component-wrapper')) {
+                    ensureUpdateIndicator(el);
+                  }
+                });
               }
               if (node.classList.contains('vtb-card-component-wrapper'))
                 processCard(node);
