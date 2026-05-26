@@ -21,15 +21,15 @@ jobs:
       - name: Build Edge extension zip
         run: |
           zip snvtb-enhancer-edge-v${{ steps.version.outputs.version }}.zip \
-            content.js options.html options.js manifest.json
-          zip -r snvtb-enhancer-edge-v${{ steps.version.outputs.version }}.zip images/
+            content.js options.html options.js manifest.json \
+            images/icon16.png images/icon48.png images/icon128.png
 
       - name: Build Safari extension zip
         run: |
           cd safari-extension
           zip ../snvtb-enhancer-safari-v${{ steps.version.outputs.version }}.zip \
-            content.js options.html options.js manifest.json
-          zip -r ../snvtb-enhancer-safari-v${{ steps.version.outputs.version }}.zip images/
+            content.js options.html options.js manifest.json \
+            images/icon16.png images/icon48.png images/icon128.png
 
       - name: Create GitHub Release
         env:
