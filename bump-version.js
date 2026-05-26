@@ -1,17 +1,24 @@
 const fs = require('fs');
-const manifestPath = 'manifest.json';
+const isMinor = process.argv.includes('--minor');
+
+function bumpManifest(path) {
+  const manifest = JSON.parse(fs.readFileSync(path, 'utf8'));
+  const parts = manifest.version.split('.').map(Number);
+  if (isMinor) {
+    parts[1]++;
+    parts[2] = 0;
+  } else {
+    parts[2]++;
+  }
+  manifest.version = parts.join('.');
+  fs.writeFileSync(path, JSON.stringify(manifest, null, 2) + '\n');
+  return manifest.version;
+}
 
 try {
-  // Read the current manifest.json
-  const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
-  // Split version into major, minor, patch
-  const versionParts = manifest.version.split('.').map(Number);
-  // Increment the patch number
-  versionParts[2]++;
-  // Update version and write back
-  manifest.version = versionParts.join('.');
-  fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2));
-  console.log(`Version bumped to ${manifest.version}`);
+  const version = bumpManifest('manifest.json');
+  bumpManifest('safari-extension/manifest.json');
+  console.log(`Version bumped to ${version}`);
 } catch (error) {
   console.error('Error bumping version:', error);
   process.exit(1);

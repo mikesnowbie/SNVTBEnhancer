@@ -36,14 +36,19 @@ Goal: keep the two as close to identical as possible so publishing both versions
 - **Never push to `main`.** The `main` branch is managed manually by Mike on the GitHub website.
 - **Never push to the remote** unless Mike explicitly asks.
 - All work happens locally on a descriptive branch (no mandatory prefix — just make the name clear, e.g. `add-tooltip-to-age-badge`, `fix-duplicate-badge-render`, `sync-safari-options-ui`).
-- When a local change is ready, create a PR targeting `main` using `gh pr create`. The PR title should be concise and imperative (e.g. "Add tooltip showing raw start date on age badge"). Include a brief summary and test notes in the PR body.
-- The CI/CD pipeline (`.github/workflows/release.yaml`) only runs on push to `main` — it auto-bumps the patch version and uploads the extension artifact. Do not trigger it during normal feature work.
+- **Always bump the version as part of the branch** before committing (see Version Management below), so the exact version ships in the PR diff.
+- When ready to publish, push the branch and create a PR with `gh pr create --base main`. The PR title should be concise and imperative. Include a brief summary and test notes in the body.
+- On merge to `main`, CI automatically builds two zips and creates a versioned GitHub Release. No manual release steps needed.
 
 ## Version Management
 
-- Version is stored in `manifest.json` only.
-- `bump-version.js` is run by CI on merge to `main`; do not run it manually during feature work.
-- Do not edit the version number during feature development.
+- Version is stored in `manifest.json` **and** `safari-extension/manifest.json` — both must always match.
+- Use `bump-version.js` locally when creating a branch, before making any other changes:
+  - **Bug fix / minor tweak** (patch bump): `node bump-version.js`
+  - **New feature** (minor bump): `node bump-version.js --minor`
+  - **Major release**: edit both manifests manually.
+- Commit the version bump as the first commit on the branch so it's clearly visible in the PR diff.
+- CI reads the version from `manifest.json` to name the release tag and zip files — if two PRs carry the same version the CI release step will fail, which is the intended signal to investigate.
 
 ## Testing
 
