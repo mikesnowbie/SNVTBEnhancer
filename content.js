@@ -125,12 +125,14 @@
               boardCfg.lanes = [];
             }
             if (!boardCfg.sle || typeof boardCfg.sle !== 'object') {
-              boardCfg.sle = { days: 0, approachingDays: 3, showSummary: true, showBadgeEscalation: true };
+              boardCfg.sle = { days: 0, approachingDays: 3, showSummary: true, showBadgeEscalation: true, approachingEmoji: '⚠️', breachedEmoji: '🔴' };
             } else {
               if (typeof boardCfg.sle.days !== 'number' || boardCfg.sle.days < 0) boardCfg.sle.days = 0;
               if (typeof boardCfg.sle.approachingDays !== 'number' || boardCfg.sle.approachingDays < 0) boardCfg.sle.approachingDays = 3;
               if (typeof boardCfg.sle.showSummary !== 'boolean') boardCfg.sle.showSummary = true;
               if (typeof boardCfg.sle.showBadgeEscalation !== 'boolean') boardCfg.sle.showBadgeEscalation = true;
+              if (!boardCfg.sle.approachingEmoji || typeof boardCfg.sle.approachingEmoji !== 'string') boardCfg.sle.approachingEmoji = '⚠️';
+              if (!boardCfg.sle.breachedEmoji || typeof boardCfg.sle.breachedEmoji !== 'string') boardCfg.sle.breachedEmoji = '🔴';
             }
           });
           callback(cfg);
@@ -166,6 +168,14 @@
     '[class*="lane"] > [class*="header"] > [class*="title"]',
   ];
 
+  // Strips trailing card-count badges from lane header text so stored names and
+  // runtime names stay in sync even when card counts change (e.g. "In Progress (5)" → "In Progress").
+  function normalizeLaneName(text) {
+    // Prefer text from direct text nodes only (avoids child badge elements entirely).
+    // Falls back to stripping the common "(N)" suffix pattern.
+    return text.replace(/\s*\(\d+\)\s*$/, '').trim();
+  }
+
   // Returns the lane (column) name for a given card by walking up the DOM.
   function findCardLane(card) {
     let el = card.parentElement;
@@ -174,7 +184,7 @@
         try {
           const found = el.querySelector(sel);
           if (found) {
-            const text = found.textContent.trim();
+            const text = normalizeLaneName(found.textContent.trim());
             if (text) return text;
           }
         } catch (_) {}
@@ -190,7 +200,7 @@
     for (const sel of LANE_TITLE_SELECTORS) {
       try {
         document.querySelectorAll(sel).forEach((el) => {
-          const text = el.textContent.trim();
+          const text = normalizeLaneName(el.textContent.trim());
           if (text && !lanes.includes(text)) lanes.push(text);
         });
       } catch (_) {}
@@ -275,7 +285,7 @@
       wipLanes: boardConfig && Array.isArray(boardConfig.wipLanes) ? boardConfig.wipLanes : [],
       sle: boardConfig && boardConfig.sle
         ? boardConfig.sle
-        : { days: 0, approachingDays: 3, showSummary: true, showBadgeEscalation: true },
+        : { days: 0, approachingDays: 3, showSummary: true, showBadgeEscalation: true, approachingEmoji: '⚠️', breachedEmoji: '🔴' },
     };
     // --- Utility Functions ---
     function showDebugMessage(msg) {
@@ -782,13 +792,17 @@
       }
     }
 
-    // Applies an SLE escalation outline to a badge element based on how close age is to the SLE.
+    // Applies an SLE escalation outline and emoji prefix to a badge based on age vs SLE target.
     function applySleEscalationToBadge(badge, age, sle) {
       if (!sle || sle.days <= 0 || !sle.showBadgeEscalation) return;
+      const approachingEmoji = sle.approachingEmoji || '⚠️';
+      const breachedEmoji = sle.breachedEmoji || '🔴';
       if (age >= sle.days) {
+        badge.textContent = `${breachedEmoji} ${badge.textContent}`;
         badge.style.outline = '2px solid #c0392b';
         badge.style.outlineOffset = '2px';
       } else if (sle.approachingDays > 0 && age >= sle.days - sle.approachingDays) {
+        badge.textContent = `${approachingEmoji} ${badge.textContent}`;
         badge.style.outline = '2px dashed #e67e22';
         badge.style.outlineOffset = '2px';
       }
@@ -903,13 +917,19 @@
         if (!startDate) return;
         const age = calculateDaysDiff(startDate);
         if (age === null) return;
-        card.setAttribute('data-task-age-days', age);
+        card.setAttribute('data-task-age-days', age); // Always set for SLE tracking (renderSleSummaryBar skips negative ages)
         if (!config.enableAgeBadge) return;
+        if (age < 0) {
+          // Work hasn't started yet — show how many days until the start date.
+          const badge = createBadge(`Starts in ${Math.abs(age)}d`, '#95a5a6');
+          if (getComputedStyle(card).position === 'static') card.style.position = 'relative';
+          card.appendChild(badge);
+          card.setAttribute('data-task-age-enhanced', 'true');
+          updatedCount++;
+          return;
+        }
         const badgeColor = getBadgeColor(age);
-        const badge = createBadge(
-          `Age: ${age} day${age !== 1 ? 's' : ''}`,
-          badgeColor
-        );
+        const badge = createBadge(`${age}d`, badgeColor);
         applySleEscalationToBadge(badge, age, config.sle);
         if (getComputedStyle(card).position === 'static') {
           card.style.position = 'relative';

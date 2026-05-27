@@ -52,6 +52,8 @@ document.addEventListener('DOMContentLoaded', function () {
   const sleApproachingInput = document.getElementById('sleApproachingInput');
   const sleSummaryToggle = document.getElementById('sleSummaryToggle');
   const sleEscalationToggle = document.getElementById('sleEscalationToggle');
+  const sleApproachingEmojiInput = document.getElementById('sleApproachingEmojiInput');
+  const sleBreachedEmojiInput = document.getElementById('sleBreachedEmojiInput');
   const sleDefaultHint = document.getElementById('sleDefaultHint');
   const sleFields = document.getElementById('sleFields');
 
@@ -166,12 +168,14 @@ document.addEventListener('DOMContentLoaded', function () {
           : cfg.defaultConfig.enableUpdateIndicator;
 
       if (!boardCfg.sle || typeof boardCfg.sle !== 'object') {
-        boardCfg.sle = { days: 0, approachingDays: 3, showSummary: true, showBadgeEscalation: true };
+        boardCfg.sle = { days: 0, approachingDays: 3, showSummary: true, showBadgeEscalation: true, approachingEmoji: '⚠️', breachedEmoji: '🔴' };
       } else {
         if (typeof boardCfg.sle.days !== 'number' || boardCfg.sle.days < 0) boardCfg.sle.days = 0;
         if (typeof boardCfg.sle.approachingDays !== 'number' || boardCfg.sle.approachingDays < 0) boardCfg.sle.approachingDays = 3;
         if (typeof boardCfg.sle.showSummary !== 'boolean') boardCfg.sle.showSummary = true;
         if (typeof boardCfg.sle.showBadgeEscalation !== 'boolean') boardCfg.sle.showBadgeEscalation = true;
+        if (!boardCfg.sle.approachingEmoji || typeof boardCfg.sle.approachingEmoji !== 'string') boardCfg.sle.approachingEmoji = '⚠️';
+        if (!boardCfg.sle.breachedEmoji || typeof boardCfg.sle.breachedEmoji !== 'string') boardCfg.sle.breachedEmoji = '🔴';
       }
     });
 
@@ -249,11 +253,13 @@ document.addEventListener('DOMContentLoaded', function () {
   }
 
   function renderSleToUI(sle) {
-    const s = sle || { days: 0, approachingDays: 3, showSummary: true, showBadgeEscalation: true };
+    const s = sle || { days: 0, approachingDays: 3, showSummary: true, showBadgeEscalation: true, approachingEmoji: '⚠️', breachedEmoji: '🔴' };
     sleDaysInput.value = s.days;
     sleApproachingInput.value = s.approachingDays;
     sleSummaryToggle.checked = s.showSummary !== false;
     sleEscalationToggle.checked = s.showBadgeEscalation !== false;
+    sleApproachingEmojiInput.value = s.approachingEmoji || '⚠️';
+    sleBreachedEmojiInput.value = s.breachedEmoji || '🔴';
   }
 
   function getSleFromInputs() {
@@ -264,6 +270,8 @@ document.addEventListener('DOMContentLoaded', function () {
       approachingDays: isNaN(approachingDays) || approachingDays < 0 ? 3 : approachingDays,
       showSummary: sleSummaryToggle.checked,
       showBadgeEscalation: sleEscalationToggle.checked,
+      approachingEmoji: sleApproachingEmojiInput.value.trim() || '⚠️',
+      breachedEmoji: sleBreachedEmojiInput.value.trim() || '🔴',
     };
   }
 
@@ -299,7 +307,7 @@ document.addEventListener('DOMContentLoaded', function () {
       const color = getPreviewBandColor();
       previewBadge.style.backgroundColor = color;
       previewBadge.style.color = '#fff';
-      previewBadge.textContent = 'Age: 10 days';
+      previewBadge.textContent = '10d';
       previewBadge.style.display = '';
     } else if (previewBadge) {
       previewBadge.style.display = 'none';
@@ -518,7 +526,7 @@ document.addEventListener('DOMContentLoaded', function () {
         wipLanes: Array.isArray(board.wipLanes) ? [...board.wipLanes] : [],
         sle: board.sle && typeof board.sle === 'object'
           ? { ...board.sle }
-          : { days: 0, approachingDays: 3, showSummary: true, showBadgeEscalation: true },
+          : { days: 0, approachingDays: 3, showSummary: true, showBadgeEscalation: true, approachingEmoji: '⚠️', breachedEmoji: '🔴' },
       },
     };
     const json = JSON.stringify(payload, null, 2);
@@ -575,6 +583,8 @@ document.addEventListener('DOMContentLoaded', function () {
         approachingDays: typeof incoming.sle.approachingDays === 'number' && incoming.sle.approachingDays >= 0 ? incoming.sle.approachingDays : 3,
         showSummary: typeof incoming.sle.showSummary === 'boolean' ? incoming.sle.showSummary : true,
         showBadgeEscalation: typeof incoming.sle.showBadgeEscalation === 'boolean' ? incoming.sle.showBadgeEscalation : true,
+        approachingEmoji: typeof incoming.sle.approachingEmoji === 'string' && incoming.sle.approachingEmoji.trim() ? incoming.sle.approachingEmoji : '⚠️',
+        breachedEmoji: typeof incoming.sle.breachedEmoji === 'string' && incoming.sle.breachedEmoji.trim() ? incoming.sle.breachedEmoji : '🔴',
       };
     }
 
