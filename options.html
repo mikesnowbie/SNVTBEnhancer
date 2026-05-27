@@ -197,6 +197,26 @@
         color: #666;
         margin-top: 4px;
       }
+      .import-area {
+        margin-top: 12px;
+        display: none;
+      }
+      .import-area textarea {
+        width: 100%;
+        height: 160px;
+        box-sizing: border-box;
+        font-family: monospace;
+        font-size: 12px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        padding: 8px;
+        resize: vertical;
+      }
+      .import-area-actions {
+        display: flex;
+        gap: 8px;
+        margin-top: 8px;
+      }
     </style>
   </head>
   <body>
@@ -329,6 +349,24 @@
         <button id="resetBtn" class="btn btn-secondary">
           Reset to Default
         </button>
+        <button id="exportBtn" class="btn btn-secondary" style="display:none;">
+          Export Settings
+        </button>
+        <button id="importBtn" class="btn btn-secondary" style="display:none;">
+          Import Settings
+        </button>
+      </div>
+      <div id="importArea" class="import-area">
+        <p class="field-help">
+          Paste the JSON from a previously exported board configuration, then
+          click <strong>Apply</strong>. Only board-level settings are imported;
+          your default configuration is not affected.
+        </p>
+        <textarea id="importTextarea" placeholder='{ "vtbEnhancerBoardConfig": { ... } }'></textarea>
+        <div class="import-area-actions">
+          <button id="applyImportBtn" class="btn">Apply</button>
+          <button id="cancelImportBtn" class="btn btn-secondary">Cancel</button>
+        </div>
       </div>
       <div id="status" style="margin-top: 20px"></div>
     </div>

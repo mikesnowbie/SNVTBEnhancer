@@ -3,15 +3,14 @@
   <head>
     <meta charset="utf-8" />
     <title>ServiceNow VTB Enhancer Options</title>
-    <!--
-      Safari version: Google Fonts CDN link removed.
-      Safari extension pages apply a strict Content Security Policy that blocks
-      external stylesheet requests by default. System fonts are used instead.
-    -->
+    <link
+      href="https://fonts.googleapis.com/css?family=Roboto:400,500"
+      rel="stylesheet"
+    />
     <style>
       /* Modern UI styles */
       body {
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        font-family: "Roboto", sans-serif;
         background-color: #f4f7f9;
         margin: 0;
         padding: 20px;
@@ -198,6 +197,26 @@
         color: #666;
         margin-top: 4px;
       }
+      .import-area {
+        margin-top: 12px;
+        display: none;
+      }
+      .import-area textarea {
+        width: 100%;
+        height: 160px;
+        box-sizing: border-box;
+        font-family: monospace;
+        font-size: 12px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        padding: 8px;
+        resize: vertical;
+      }
+      .import-area-actions {
+        display: flex;
+        gap: 8px;
+        margin-top: 8px;
+      }
     </style>
   </head>
   <body>
@@ -259,7 +278,7 @@
       </div>
       <div class="section-title">Last Updated Freshness Indicator</div>
       <p class="field-help">
-        When enabled, a fresh or stale emoji appears beside the card's last
+        When enabled, a fresh or stale emoji appears beside the card’s last
         updated timestamp (bottom right corner of each VTB card). Set the
         threshold in days to split fresh vs. stale, and pick emojis; leaving
         them blank falls back to defaults.
@@ -330,9 +349,28 @@
         <button id="resetBtn" class="btn btn-secondary">
           Reset to Default
         </button>
+        <button id="exportBtn" class="btn btn-secondary" style="display:none;">
+          Export Settings
+        </button>
+        <button id="importBtn" class="btn btn-secondary" style="display:none;">
+          Import Settings
+        </button>
+      </div>
+      <div id="importArea" class="import-area">
+        <p class="field-help">
+          Paste the JSON from a previously exported board configuration, then
+          click <strong>Apply</strong>. Only board-level settings are imported;
+          your default configuration is not affected.
+        </p>
+        <textarea id="importTextarea" placeholder='{ "vtbEnhancerBoardConfig": { ... } }'></textarea>
+        <div class="import-area-actions">
+          <button id="applyImportBtn" class="btn">Apply</button>
+          <button id="cancelImportBtn" class="btn btn-secondary">Cancel</button>
+        </div>
       </div>
       <div id="status" style="margin-top: 20px"></div>
     </div>
     <script src="options.js"></script>
   </body>
 </html>
+
