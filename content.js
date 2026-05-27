@@ -491,15 +491,15 @@
     }
 
     function removeExistingUpdateIndicator(timeElement) {
-      const existingIndicator = timeElement.querySelector(
-        '.vtb-enhancer-update-indicator'
-      );
-      if (existingIndicator) existingIndicator.remove();
-
-      const existingSrText = timeElement.querySelector(
-        '.vtb-enhancer-update-indicator-text'
-      );
-      if (existingSrText) existingSrText.remove();
+      // The indicator lives on the card wrapper (not inside the time element) so
+      // that it remains visible regardless of lane-specific CSS applied to the
+      // sn-time-ago subtree.
+      const card = timeElement.closest('.vtb-card-component-wrapper');
+      if (card) {
+        card.querySelectorAll(
+          '.vtb-enhancer-update-indicator, .vtb-enhancer-update-indicator-text'
+        ).forEach((el) => el.remove());
+      }
     }
 
     function getIndicatorEmojis() {
@@ -591,17 +591,21 @@
 
     function applyUpdateIndicator(timeElement) {
       const state = computeUpdateIndicatorState(timeElement);
-      const existingIndicator = timeElement.querySelector(
-        '.vtb-enhancer-update-indicator'
-      );
-      const existingSrText = timeElement.querySelector(
-        '.vtb-enhancer-update-indicator-text'
-      );
+
+      // Render the indicator directly on the card wrapper, not inside the
+      // sn-time-ago subtree. Some lanes (e.g. those that hide their timestamp
+      // footer until card hover) apply CSS to sn-time-ago that makes any
+      // injected children invisible until the hover state activates. Placing
+      // the indicator on the card wrapper — the same host element used by the
+      // age badge — ensures it is always visible.
+      const card = timeElement.closest('.vtb-card-component-wrapper');
+
+      const existingIndicator = card && card.querySelector('.vtb-enhancer-update-indicator');
+      const existingSrText = card && card.querySelector('.vtb-enhancer-update-indicator-text');
 
       if (!state) {
-        if (existingIndicator || existingSrText) {
-          removeExistingUpdateIndicator(timeElement);
-        }
+        if (existingIndicator) existingIndicator.remove();
+        if (existingSrText) existingSrText.remove();
         return;
       }
 
@@ -614,50 +618,44 @@
         return;
       }
 
-      removeExistingUpdateIndicator(timeElement);
+      if (existingIndicator) existingIndicator.remove();
+      if (existingSrText) existingSrText.remove();
+
+      if (!card) return;
+      if (getComputedStyle(card).position === 'static') card.style.position = 'relative';
 
       const indicatorSpan = document.createElement('span');
       indicatorSpan.className = 'vtb-enhancer-update-indicator';
       indicatorSpan.setAttribute('aria-hidden', 'true');
-      indicatorSpan.style.marginLeft = '4px';
       indicatorSpan.textContent = state.emoji;
+      Object.assign(indicatorSpan.style, {
+        position: 'absolute',
+        bottom: '2px',
+        right: '6px',
+        zIndex: '1001',
+        fontSize: '13px',
+        lineHeight: '1',
+        pointerEvents: 'none',
+      });
 
       const srSpan = document.createElement('span');
-      srSpan.className = 'sr-only vtb-enhancer-update-indicator-text';
-      srSpan.textContent = state.srMessage;
+      srSpan.className = 'vtb-enhancer-update-indicator-text';
+      // sr-only inline equivalent so Bootstrap's class isn't required
+      srSpan.setAttribute('aria-label', state.srMessage);
+      Object.assign(srSpan.style, {
+        position: 'absolute',
+        width: '1px',
+        height: '1px',
+        padding: '0',
+        margin: '-1px',
+        overflow: 'hidden',
+        clip: 'rect(0,0,0,0)',
+        whiteSpace: 'nowrap',
+        border: '0',
+      });
 
-      const visibleSpan = Array.from(timeElement.children).find(
-        (child) =>
-          child.nodeType === Node.ELEMENT_NODE &&
-          child.tagName === 'SPAN' &&
-          !child.classList.contains('sr-only') &&
-          !child.classList.contains('vtb-enhancer-update-indicator') &&
-          !child.classList.contains('vtb-enhancer-update-indicator-text')
-      );
-
-      const srOnlyReference = Array.from(timeElement.children).find(
-        (child) =>
-          child.classList &&
-          child.classList.contains('sr-only') &&
-          !child.classList.contains('vtb-enhancer-update-indicator-text')
-      );
-
-      if (visibleSpan && typeof visibleSpan.after === 'function') {
-        visibleSpan.after(indicatorSpan);
-      } else if (srOnlyReference && srOnlyReference.parentNode) {
-        srOnlyReference.parentNode.insertBefore(
-          indicatorSpan,
-          srOnlyReference
-        );
-      } else {
-        timeElement.appendChild(indicatorSpan);
-      }
-
-      if (srOnlyReference && srOnlyReference.parentNode) {
-        srOnlyReference.parentNode.insertBefore(srSpan, srOnlyReference);
-      } else {
-        indicatorSpan.after(srSpan);
-      }
+      card.appendChild(indicatorSpan);
+      card.appendChild(srSpan);
     }
 
     function detachTimeObserver(timeElement) {
