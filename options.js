@@ -522,6 +522,10 @@ document.addEventListener('DOMContentLoaded', function () {
           ? board.updateThresholdDays
           : fullConfig.defaultConfig.updateThresholdDays,
         updateIndicator: { ...normalizeIndicator(board.updateIndicator, fullConfig.defaultConfig.updateIndicator) },
+        wipLanes: Array.isArray(board.wipLanes) ? [...board.wipLanes] : [],
+        sle: board.sle && typeof board.sle === 'object'
+          ? { ...board.sle }
+          : { days: 0, approachingDays: 3, showSummary: true, showBadgeEscalation: true },
       },
     };
     const json = JSON.stringify(payload, null, 2);
@@ -568,6 +572,17 @@ document.addEventListener('DOMContentLoaded', function () {
         (b) => b && typeof b.maxDays === 'number' && b.maxDays > 0 && typeof b.color === 'string'
       );
       if (bands.length > 0) target.ageBands = bands;
+    }
+    if (Array.isArray(incoming.wipLanes)) {
+      target.wipLanes = incoming.wipLanes.filter((l) => typeof l === 'string');
+    }
+    if (incoming.sle && typeof incoming.sle === 'object') {
+      target.sle = {
+        days: typeof incoming.sle.days === 'number' && incoming.sle.days >= 0 ? incoming.sle.days : 0,
+        approachingDays: typeof incoming.sle.approachingDays === 'number' && incoming.sle.approachingDays >= 0 ? incoming.sle.approachingDays : 3,
+        showSummary: typeof incoming.sle.showSummary === 'boolean' ? incoming.sle.showSummary : true,
+        showBadgeEscalation: typeof incoming.sle.showBadgeEscalation === 'boolean' ? incoming.sle.showBadgeEscalation : true,
+      };
     }
 
     renderConfigToUI(getCurrentConfig());
