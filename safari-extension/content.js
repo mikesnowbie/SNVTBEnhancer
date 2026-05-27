@@ -1,6 +1,6 @@
 /*
   ServiceNow Visual Task Board Enhancer - Work Item Age
-  Version 0.9.2 (Safari)
+  Version 0.9.6 (Safari)
   - Uses browser.* namespace (WebExtensions API) for Safari compatibility.
   - Waits until the board has fully loaded all cards (using a MutationObserver with a debounce)
     before processing any cards or displaying a status message.
@@ -225,9 +225,66 @@
     const MS_PER_DAY = 1000 * 60 * 60 * 24;
 
     function calculateDaysDiff(dateStr) {
-      const d = new Date(dateStr);
-      if (isNaN(d)) return null;
+      const d = parseDisplayedDate(dateStr);
+      if (!d) return null;
       return Math.floor((Date.now() - d.getTime()) / MS_PER_DAY);
+    }
+
+    // Determines whether the browser locale uses day-first ordering (DD/MM vs MM/DD).
+    // ServiceNow respects user locale settings; browser language is the best proxy available.
+    function isDayFirstLocale() {
+      const lang = (navigator.language || navigator.userLanguage || '').toLowerCase();
+      // Only en-US and a handful of others use month-first; default to day-first for safety.
+      return !/^en-us|^en-ca|^en-au/.test(lang) || lang === '';
+    }
+
+    // Parses a date string as displayed in a ServiceNow card field, which may be localized
+    // (e.g. "15.03.2024" in German, "03/15/2024" in US English, "15/03/2024" in UK).
+    // Falls through to parseServiceNowDateTime for ISO/internal format strings.
+    function parseDisplayedDate(dateStr) {
+      if (!dateStr || typeof dateStr !== 'string') return null;
+      const trimmed = dateStr.trim();
+
+      // ISO / ServiceNow internal format first (locale-independent)
+      const snParsed = parseServiceNowDateTime(trimmed);
+      if (snParsed) return snParsed;
+
+      // DD.MM.YYYY or DD.MM.YYYY HH:MM:SS (German, Austrian, Russian, etc.)
+      const dotMatch = trimmed.match(
+        /^(\d{1,2})\.(\d{1,2})\.(\d{4})(?:[T ](\d{2}):(\d{2})(?::(\d{2}))?)?/
+      );
+      if (dotMatch) {
+        const [, dd, mm, yyyy, hh = '0', mi = '0', ss = '0'] = dotMatch;
+        const d = new Date(+yyyy, +mm - 1, +dd, +hh, +mi, +ss);
+        if (!isNaN(d)) return d;
+      }
+
+      // DD-MM-YYYY or MM-DD-YYYY with time component (hyphens, locale-detected)
+      // Note: YYYY-MM-DD is already handled by parseServiceNowDateTime above.
+      const hyphenMatch = trimmed.match(
+        /^(\d{1,2})-(\d{1,2})-(\d{4})(?:[T ](\d{2}):(\d{2})(?::(\d{2}))?)?/
+      );
+      if (hyphenMatch) {
+        const [, a, b, yyyy, hh = '0', mi = '0', ss = '0'] = hyphenMatch;
+        const [dd, mm] = +a > 12 || isDayFirstLocale() ? [+a, +b] : [+b, +a];
+        const d = new Date(+yyyy, mm - 1, dd, +hh, +mi, +ss);
+        if (!isNaN(d)) return d;
+      }
+
+      // DD/MM/YYYY or MM/DD/YYYY with optional time (locale-detected for ambiguous cases)
+      const slashMatch = trimmed.match(
+        /^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:[T ](\d{2}):(\d{2})(?::(\d{2}))?)?/
+      );
+      if (slashMatch) {
+        const [, a, b, yyyy, hh = '0', mi = '0', ss = '0'] = slashMatch;
+        const [dd, mm] = +a > 12 || isDayFirstLocale() ? [+a, +b] : [+b, +a];
+        const d = new Date(+yyyy, mm - 1, dd, +hh, +mi, +ss);
+        if (!isNaN(d)) return d;
+      }
+
+      // "15 Mar 2024" or "March 15, 2024" — let the engine handle these
+      const fallback = new Date(trimmed);
+      return isNaN(fallback) ? null : fallback;
     }
 
     function parseServiceNowDateTime(dateStr) {
@@ -263,8 +320,15 @@
         if (!isNaN(base)) return base;
       }
 
-      const fallback = new Date(trimmed);
-      return isNaN(fallback) ? null : fallback;
+      // YYYY-MM-DD date-only (no time component)
+      const dateOnlyMatch = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+      if (dateOnlyMatch) {
+        const [, year, month, day] = dateOnlyMatch.map(Number);
+        const d = new Date(year, month - 1, day);
+        if (!isNaN(d)) return d;
+      }
+
+      return null;
     }
 
     function removeExistingUpdateIndicator(timeElement) {
@@ -576,7 +640,12 @@
         );
         if (spans.length < 2) continue;
 
-        const value = spans[1].textContent.trim();
+        const valueSpan = spans[1];
+        // Prefer raw ISO value from data attributes when available — avoids locale-format issues.
+        const value =
+          valueSpan.getAttribute('data-value') ||
+          valueSpan.getAttribute('data-raw-value') ||
+          valueSpan.textContent.trim();
         if (!value) continue;
 
         const normalizedLabel = normalizeDateLabel(spans[0].textContent);
