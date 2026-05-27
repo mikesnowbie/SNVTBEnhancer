@@ -45,6 +45,12 @@ document.addEventListener('DOMContentLoaded', function () {
   const previewStale = document.getElementById('previewStale');
   const wipLanesSection = document.getElementById('wipLanesSection');
   const wipLanesList = document.getElementById('wipLanesList');
+  const exportBtn = document.getElementById('exportBtn');
+  const importBtn = document.getElementById('importBtn');
+  const importArea = document.getElementById('importArea');
+  const importTextarea = document.getElementById('importTextarea');
+  const applyImportBtn = document.getElementById('applyImportBtn');
+  const cancelImportBtn = document.getElementById('cancelImportBtn');
 
   let fullConfig = null;
   let currentBoardId = null; // null means default config
@@ -297,6 +303,7 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     renderWipLanes(currentBoardId);
+    updateExportImportVisibility();
   }
 
   function refreshTable() {
@@ -438,8 +445,117 @@ document.addEventListener('DOMContentLoaded', function () {
     };
   }
 
+  // --- Export / Import ---
+
+  function updateExportImportVisibility() {
+    const show = !!currentBoardId;
+    exportBtn.style.display = show ? '' : 'none';
+    importBtn.style.display = show ? '' : 'none';
+    if (!show) {
+      importArea.style.display = 'none';
+      importTextarea.value = '';
+    }
+  }
+
+  function exportBoardConfig() {
+    if (!currentBoardId) return;
+    const board = fullConfig.boards[currentBoardId] || {};
+    const payload = {
+      vtbEnhancerBoardConfig: {
+        enableAgeBadge: typeof board.enableAgeBadge === 'boolean'
+          ? board.enableAgeBadge
+          : fullConfig.defaultConfig.enableAgeBadge,
+        enableUpdateIndicator: typeof board.enableUpdateIndicator === 'boolean'
+          ? board.enableUpdateIndicator
+          : fullConfig.defaultConfig.enableUpdateIndicator,
+        ageBands: (board.ageBands || fullConfig.defaultConfig.ageBands).map((b) => ({ ...b })),
+        updateThresholdDays: typeof board.updateThresholdDays === 'number'
+          ? board.updateThresholdDays
+          : fullConfig.defaultConfig.updateThresholdDays,
+        updateIndicator: { ...normalizeIndicator(board.updateIndicator, fullConfig.defaultConfig.updateIndicator) },
+      },
+    };
+    const json = JSON.stringify(payload, null, 2);
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const boardName = (board.name || currentBoardId).replace(/[^a-z0-9]/gi, '-').toLowerCase();
+    a.href = url;
+    a.download = `vtb-board-config-${boardName}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  function applyImportedConfig(jsonStr) {
+    let parsed;
+    try {
+      parsed = JSON.parse(jsonStr);
+    } catch (_) {
+      return 'Invalid JSON — please check the pasted text and try again.';
+    }
+    const incoming = parsed && parsed.vtbEnhancerBoardConfig;
+    if (!incoming || typeof incoming !== 'object') {
+      return 'Unrecognised format — the JSON must contain a "vtbEnhancerBoardConfig" key.';
+    }
+    if (!currentBoardId) return 'No board selected.';
+
+    if (!fullConfig.boards[currentBoardId]) {
+      fullConfig.boards[currentBoardId] = { name: currentBoardId };
+    }
+    const target = fullConfig.boards[currentBoardId];
+
+    if (typeof incoming.enableAgeBadge === 'boolean') target.enableAgeBadge = incoming.enableAgeBadge;
+    if (typeof incoming.enableUpdateIndicator === 'boolean') target.enableUpdateIndicator = incoming.enableUpdateIndicator;
+    if (typeof incoming.updateThresholdDays === 'number' && incoming.updateThresholdDays >= 0) {
+      target.updateThresholdDays = incoming.updateThresholdDays;
+    }
+    if (incoming.updateIndicator && typeof incoming.updateIndicator === 'object') {
+      target.updateIndicator = normalizeIndicator(incoming.updateIndicator, fullConfig.defaultConfig.updateIndicator);
+    }
+    if (Array.isArray(incoming.ageBands) && incoming.ageBands.length > 0) {
+      const bands = incoming.ageBands.filter(
+        (b) => b && typeof b.maxDays === 'number' && b.maxDays > 0 && typeof b.color === 'string'
+      );
+      if (bands.length > 0) target.ageBands = bands;
+    }
+
+    renderConfigToUI(getCurrentConfig());
+    return null; // no error
+  }
+
+  exportBtn.addEventListener('click', exportBoardConfig);
+
+  importBtn.addEventListener('click', () => {
+    importArea.style.display = importArea.style.display === 'none' ? '' : 'none';
+    importTextarea.value = '';
+  });
+
+  cancelImportBtn.addEventListener('click', () => {
+    importArea.style.display = 'none';
+    importTextarea.value = '';
+  });
+
+  applyImportBtn.addEventListener('click', () => {
+    const err = applyImportedConfig(importTextarea.value.trim());
+    if (err) {
+      statusDiv.textContent = err;
+    } else {
+      importArea.style.display = 'none';
+      importTextarea.value = '';
+      saveConfig(fullConfig, () => {
+        statusDiv.textContent = 'Settings imported and saved.';
+        setTimeout(() => { statusDiv.textContent = ''; }, 3000);
+      });
+    }
+  });
+
+  // --- End Export / Import ---
+
   boardSelect.addEventListener('change', () => {
     currentBoardId = boardSelect.value || null;
+    updateExportImportVisibility();
     renderConfigToUI(getCurrentConfig());
   });
 
