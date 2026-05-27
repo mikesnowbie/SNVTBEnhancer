@@ -125,8 +125,9 @@
               boardCfg.lanes = [];
             }
             if (!boardCfg.sle || typeof boardCfg.sle !== 'object') {
-              boardCfg.sle = { days: 0, approachingDays: 3, showSummary: true, showBadgeEscalation: true, approachingEmoji: '⚠️', breachedEmoji: '🔴' };
+              boardCfg.sle = { enabled: true, days: 0, approachingDays: 3, showSummary: true, showBadgeEscalation: true, approachingEmoji: '⚠️', breachedEmoji: '🔴' };
             } else {
+              if (typeof boardCfg.sle.enabled !== 'boolean') boardCfg.sle.enabled = true;
               if (typeof boardCfg.sle.days !== 'number' || boardCfg.sle.days < 0) boardCfg.sle.days = 0;
               if (typeof boardCfg.sle.approachingDays !== 'number' || boardCfg.sle.approachingDays < 0) boardCfg.sle.approachingDays = 3;
               if (typeof boardCfg.sle.showSummary !== 'boolean') boardCfg.sle.showSummary = true;
@@ -205,31 +206,31 @@
 
   // Returns the lane (column) name for a given card by walking up the DOM.
   //
-  // Key constraint: we use querySelectorAll (not querySelector) and only accept
-  // the result when exactly ONE title element is found within the current ancestor.
-  // This prevents the common failure mode where the walk-up reaches a board-level
-  // container that holds ALL lane headers — querySelector would return the first
-  // lane in the DOM (e.g. "Backlog") for every card regardless of their actual lane.
-  // When multiple titles are found, we break the inner loop (stop trying selectors
-  // at this level) and continue to the parent, eventually falling back to positional
-  // matching if no single-lane ancestor is ever found.
+  // Only the most specific selector (.vtb-lane-header-title) is used for the
+  // walk-up uniqueness check. Broader selectors like [class*="title"] match
+  // multiple elements per lane (the div, the form, the label, any input) so the
+  // length===1 check would never succeed even when we're inside a single-lane
+  // ancestor — causing false "multiple lanes" breaks and falling through to the
+  // positional fallback for every card.
+  //
+  // The walk-up stops and returns the lane name as soon as exactly one
+  // .vtb-lane-header-title is found under the current ancestor (i.e. we're
+  // inside one lane's container). If that number exceeds one we've climbed above
+  // the lane boundary and fall back to positional matching.
   function findCardLane(card) {
+    const primarySel = LANE_TITLE_SELECTORS[0]; // '.vtb-lane-header-title'
     let el = card.parentElement;
     while (el && el !== document.body) {
-      for (const sel of LANE_TITLE_SELECTORS) {
-        try {
-          const matches = el.querySelectorAll(sel);
-          if (matches.length === 1) {
-            const text = getLaneTitleText(matches[0]);
-            if (text) return text;
-          } else if (matches.length > 1) {
-            // This ancestor spans multiple lanes — stop testing selectors here
-            // and move up to the next parent.
-            break;
-          }
-          // length === 0: no title in this subtree via this selector; try next
-        } catch (_) {}
-      }
+      try {
+        const matches = el.querySelectorAll(primarySel);
+        if (matches.length === 1) {
+          const text = getLaneTitleText(matches[0]);
+          if (text) return text;
+        } else if (matches.length > 1) {
+          break; // climbed above lane boundary — multiple headers visible
+        }
+        // length === 0: header not in this subtree yet; keep walking up
+      } catch (_) {}
       el = el.parentElement;
     }
     // Walk-up could not isolate a single-lane ancestor — fall back to positional
@@ -357,7 +358,7 @@
       wipLanes: boardConfig && Array.isArray(boardConfig.wipLanes) ? boardConfig.wipLanes : [],
       sle: boardConfig && boardConfig.sle
         ? boardConfig.sle
-        : { days: 0, approachingDays: 3, showSummary: true, showBadgeEscalation: true, approachingEmoji: '⚠️', breachedEmoji: '🔴' },
+        : { enabled: true, days: 0, approachingDays: 3, showSummary: true, showBadgeEscalation: true, approachingEmoji: '⚠️', breachedEmoji: '🔴' },
     };
     // --- Utility Functions ---
     function showDebugMessage(msg) {
@@ -550,11 +551,13 @@
 
     function computeUpdateIndicatorState(timeElement) {
       // When WIP lanes are configured, suppress the indicator on non-WIP cards.
+      // Cards whose lane cannot be determined (null) are also suppressed — when
+      // WIP mode is on we default to "not a WIP lane" rather than showing on all.
       if (config.wipLanes && config.wipLanes.length > 0) {
         const card = timeElement.closest('.vtb-card-component-wrapper');
         if (card) {
           const laneName = findCardLane(card);
-          if (laneName !== null && !config.wipLanes.includes(laneName)) return null;
+          if (!config.wipLanes.includes(laneName)) return null;
         }
       }
 
@@ -866,7 +869,7 @@
 
     // Applies an SLE escalation outline and emoji prefix to a badge based on age vs SLE target.
     function applySleEscalationToBadge(badge, age, sle) {
-      if (!sle || sle.days <= 0 || !sle.showBadgeEscalation) return;
+      if (!sle || sle.enabled === false || sle.days <= 0 || !sle.showBadgeEscalation) return;
       const approachingEmoji = sle.approachingEmoji || '⚠️';
       const breachedEmoji = sle.breachedEmoji || '🔴';
       if (age >= sle.days) {
@@ -884,7 +887,7 @@
     function renderSleSummaryBar() {
       const existing = document.getElementById('vtb-enhancer-sle-bar');
       const sle = config.sle;
-      if (!sle || sle.days <= 0 || !sle.showSummary) {
+      if (!sle || sle.enabled === false || sle.days <= 0 || !sle.showSummary) {
         if (existing) existing.remove();
         return;
       }
@@ -1057,7 +1060,7 @@
             }
           });
         });
-        if (cardChanged && config.sle && config.sle.days > 0) debouncedSleUpdate();
+        if (cardChanged && config.sle && config.sle.enabled !== false && config.sle.days > 0) debouncedSleUpdate();
       });
       observer.observe(document.body, { childList: true, subtree: true });
     }

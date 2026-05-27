@@ -54,6 +54,7 @@ document.addEventListener('DOMContentLoaded', function () {
   const sleEscalationToggle = document.getElementById('sleEscalationToggle');
   const sleApproachingEmojiInput = document.getElementById('sleApproachingEmojiInput');
   const sleBreachedEmojiInput = document.getElementById('sleBreachedEmojiInput');
+  const sleToggle = document.getElementById('sleToggle');
   const sleDefaultHint = document.getElementById('sleDefaultHint');
   const sleFields = document.getElementById('sleFields');
 
@@ -167,8 +168,9 @@ document.addEventListener('DOMContentLoaded', function () {
           : cfg.defaultConfig.enableUpdateIndicator;
 
       if (!boardCfg.sle || typeof boardCfg.sle !== 'object') {
-        boardCfg.sle = { days: 0, approachingDays: 3, showSummary: true, showBadgeEscalation: true, approachingEmoji: '⚠️', breachedEmoji: '🔴' };
+        boardCfg.sle = { enabled: true, days: 0, approachingDays: 3, showSummary: true, showBadgeEscalation: true, approachingEmoji: '⚠️', breachedEmoji: '🔴' };
       } else {
+        if (typeof boardCfg.sle.enabled !== 'boolean') boardCfg.sle.enabled = true;
         if (typeof boardCfg.sle.days !== 'number' || boardCfg.sle.days < 0) boardCfg.sle.days = 0;
         if (typeof boardCfg.sle.approachingDays !== 'number' || boardCfg.sle.approachingDays < 0) boardCfg.sle.approachingDays = 3;
         if (typeof boardCfg.sle.showSummary !== 'boolean') boardCfg.sle.showSummary = true;
@@ -244,7 +246,7 @@ document.addEventListener('DOMContentLoaded', function () {
   function updateSleVisibility() {
     if (currentBoardId) {
       sleDefaultHint.style.display = 'none';
-      sleFields.style.display = '';
+      sleFields.style.display = sleToggle.checked ? '' : 'none';
     } else {
       sleDefaultHint.style.display = '';
       sleFields.style.display = 'none';
@@ -252,7 +254,8 @@ document.addEventListener('DOMContentLoaded', function () {
   }
 
   function renderSleToUI(sle) {
-    const s = sle || { days: 0, approachingDays: 3, showSummary: true, showBadgeEscalation: true, approachingEmoji: '⚠️', breachedEmoji: '🔴' };
+    const s = sle || { enabled: true, days: 0, approachingDays: 3, showSummary: true, showBadgeEscalation: true, approachingEmoji: '⚠️', breachedEmoji: '🔴' };
+    sleToggle.checked = s.enabled !== false;
     sleDaysInput.value = s.days;
     sleApproachingInput.value = s.approachingDays;
     sleSummaryToggle.checked = s.showSummary !== false;
@@ -265,6 +268,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const days = parseInt(sleDaysInput.value, 10);
     const approachingDays = parseInt(sleApproachingInput.value, 10);
     return {
+      enabled: sleToggle.checked,
       days: isNaN(days) || days < 0 ? 0 : days,
       approachingDays: isNaN(approachingDays) || approachingDays < 0 ? 3 : approachingDays,
       showSummary: sleSummaryToggle.checked,
@@ -352,11 +356,14 @@ document.addEventListener('DOMContentLoaded', function () {
 
     renderWipLanes(currentBoardId);
     updateExportImportVisibility();
-    updateSleVisibility();
+    // Render SLE fields first so that sleToggle.checked is set before updateSleVisibility reads it.
     if (currentBoardId) {
       const boardSle = fullConfig.boards[currentBoardId] && fullConfig.boards[currentBoardId].sle;
       renderSleToUI(boardSle);
+    } else {
+      sleToggle.checked = true;
     }
+    updateSleVisibility();
   }
 
   function refreshTable() {
@@ -525,7 +532,7 @@ document.addEventListener('DOMContentLoaded', function () {
         wipLanes: Array.isArray(board.wipLanes) ? [...board.wipLanes] : [],
         sle: board.sle && typeof board.sle === 'object'
           ? { ...board.sle }
-          : { days: 0, approachingDays: 3, showSummary: true, showBadgeEscalation: true, approachingEmoji: '⚠️', breachedEmoji: '🔴' },
+          : { enabled: true, days: 0, approachingDays: 3, showSummary: true, showBadgeEscalation: true, approachingEmoji: '⚠️', breachedEmoji: '🔴' },
       },
     };
     const json = JSON.stringify(payload, null, 2);
@@ -578,6 +585,7 @@ document.addEventListener('DOMContentLoaded', function () {
     }
     if (incoming.sle && typeof incoming.sle === 'object') {
       target.sle = {
+        enabled: typeof incoming.sle.enabled === 'boolean' ? incoming.sle.enabled : true,
         days: typeof incoming.sle.days === 'number' && incoming.sle.days >= 0 ? incoming.sle.days : 0,
         approachingDays: typeof incoming.sle.approachingDays === 'number' && incoming.sle.approachingDays >= 0 ? incoming.sle.approachingDays : 3,
         showSummary: typeof incoming.sle.showSummary === 'boolean' ? incoming.sle.showSummary : true,
@@ -627,6 +635,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
   ageBadgeToggle.addEventListener('change', toggleSettingsVisibility);
   updateIndicatorToggle.addEventListener('change', toggleSettingsVisibility);
+  sleToggle.addEventListener('change', updateSleVisibility);
   thresholdInput.addEventListener('input', updatePreview);
   freshEmojiInput.addEventListener('input', updatePreview);
   staleEmojiInput.addEventListener('input', updatePreview);
