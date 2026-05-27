@@ -905,6 +905,10 @@
         if (age === null) return;
         card.setAttribute('data-task-age-days', age);
         if (!config.enableAgeBadge) return;
+        if (config.wipLanes && config.wipLanes.length > 0) {
+          const laneName = findCardLane(card);
+          if (laneName !== null && !config.wipLanes.includes(laneName)) return;
+        }
         const badgeColor = getBadgeColor(age);
         const badge = createBadge(
           `Age: ${age} day${age !== 1 ? 's' : ''}`,
