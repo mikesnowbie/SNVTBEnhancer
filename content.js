@@ -156,6 +156,55 @@
     }
   }
 
+  // CSS selectors tried in order when searching for a lane/column title element.
+  // ServiceNow VTB renders lanes as columns; the title is typically in a header child.
+  const LANE_TITLE_SELECTORS = [
+    '.vtb-lane-header-title',
+    '.sn-board-header-title',
+    '.vtb-board-header-title',
+    '[class*="lane-header"] [class*="title"]',
+    '[class*="lane"] > [class*="header"] > [class*="title"]',
+  ];
+
+  // Returns the lane (column) name for a given card by walking up the DOM.
+  function findCardLane(card) {
+    let el = card.parentElement;
+    while (el && el !== document.body) {
+      for (const sel of LANE_TITLE_SELECTORS) {
+        try {
+          const found = el.querySelector(sel);
+          if (found) {
+            const text = found.textContent.trim();
+            if (text) return text;
+          }
+        } catch (_) {}
+      }
+      el = el.parentElement;
+    }
+    return null;
+  }
+
+  // Returns all unique lane names currently visible on the board.
+  function discoverLanes() {
+    const lanes = [];
+    for (const sel of LANE_TITLE_SELECTORS) {
+      try {
+        document.querySelectorAll(sel).forEach((el) => {
+          const text = el.textContent.trim();
+          if (text && !lanes.includes(text)) lanes.push(text);
+        });
+      } catch (_) {}
+    }
+    // Fallback: derive from cards if direct header query found nothing
+    if (lanes.length === 0) {
+      document.querySelectorAll('.vtb-card-component-wrapper').forEach((card) => {
+        const lane = findCardLane(card);
+        if (lane && !lanes.includes(lane)) lanes.push(lane);
+      });
+    }
+    return lanes;
+  }
+
   function updateBoardInfo(cfg) {
     if (!boardId) return;
     // Prevent prototype pollution
@@ -647,55 +696,6 @@
 
     function normalizeDateLabel(text) {
       return text.trim().replace(/\s*:\s*$/, '').toLocaleLowerCase();
-    }
-
-    // CSS selectors tried in order when searching for a lane/column title element.
-    // ServiceNow VTB renders lanes as columns; the title is typically in a header child.
-    const LANE_TITLE_SELECTORS = [
-      '.vtb-lane-header-title',
-      '.sn-board-header-title',
-      '.vtb-board-header-title',
-      '[class*="lane-header"] [class*="title"]',
-      '[class*="lane"] > [class*="header"] > [class*="title"]',
-    ];
-
-    // Returns the lane (column) name for a given card by walking up the DOM.
-    function findCardLane(card) {
-      let el = card.parentElement;
-      while (el && el !== document.body) {
-        for (const sel of LANE_TITLE_SELECTORS) {
-          try {
-            const found = el.querySelector(sel);
-            if (found) {
-              const text = found.textContent.trim();
-              if (text) return text;
-            }
-          } catch (_) {}
-        }
-        el = el.parentElement;
-      }
-      return null;
-    }
-
-    // Returns all unique lane names currently visible on the board.
-    function discoverLanes() {
-      const lanes = [];
-      for (const sel of LANE_TITLE_SELECTORS) {
-        try {
-          document.querySelectorAll(sel).forEach((el) => {
-            const text = el.textContent.trim();
-            if (text && !lanes.includes(text)) lanes.push(text);
-          });
-        } catch (_) {}
-      }
-      // Fallback: derive from cards if direct header query found nothing
-      if (lanes.length === 0) {
-        document.querySelectorAll('.vtb-card-component-wrapper').forEach((card) => {
-          const lane = findCardLane(card);
-          if (lane && !lanes.includes(lane)) lanes.push(lane);
-        });
-      }
-      return lanes;
     }
 
     const DATE_LABELS = {
