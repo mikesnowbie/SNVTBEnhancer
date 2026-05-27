@@ -163,7 +163,7 @@
   }
 
   // CSS selectors tried in order when searching for a lane/column title element.
-  // ServiceNow VTB renders lanes as columns; the title is typically in a header child.
+  // ServiceNow VTB renders lanes as columns; the title is in a header child element.
   const LANE_TITLE_SELECTORS = [
     '.vtb-lane-header-title',
     '.sn-board-header-title',
@@ -172,15 +172,44 @@
     '[class*="lane"] > [class*="header"] > [class*="title"]',
   ];
 
-  // Strips trailing card-count badges from lane header text so stored names and
-  // runtime names stay in sync even when card counts change (e.g. "In Progress (5)" → "In Progress").
-  function normalizeLaneName(text) {
-    // Prefer text from direct text nodes only (avoids child badge elements entirely).
-    // Falls back to stripping the common "(N)" suffix pattern.
-    return text.replace(/\s*\(\d+\)\s*$/, '').trim();
+  // Extracts the lane name text from a lane-title container element.
+  //
+  // ServiceNow VTB uses an AngularJS form pattern inside .vtb-lane-header-title:
+  //   <div class="vtb-lane-header-title">
+  //     <form data-original-title="In Flight" class="vtb-lane-title ...">
+  //       <label class="ng-binding ...">In Flight</label>
+  //       <input value="In Flight">
+  //     </form>
+  //   </div>
+  //
+  // The card count lives in a separate sibling div (.vtb-lane-header-count) and
+  // never appears inside the title element itself.
+  //
+  // However, AngularJS directives such as sn-tooltip-basic and sn-focus-input can
+  // inject hidden helper spans/elements inside the form, which pollute textContent.
+  // To get a clean, stable lane name we prefer these sources in order:
+  //   1. The inner <label> textContent — AngularJS keeps this bound exactly to the
+  //      lane name (ng-binding) with no extra injected text.
+  //   2. data-original-title on the <form> — set by sn-tooltip-basic to the lane name.
+  //   3. Normalized full textContent of the container as a last resort.
+  function getLaneTitleText(el) {
+    const label = el.querySelector('label');
+    if (label) {
+      const t = label.textContent.trim();
+      if (t) return t;
+    }
+    const formEl = el.matches && el.matches('form') ? el : el.querySelector('form');
+    if (formEl) {
+      const attr = formEl.getAttribute('data-original-title');
+      if (attr && attr.trim()) return attr.trim();
+    }
+    // Strip trailing "(N)" count patterns as a fallback safety measure
+    return el.textContent.trim().replace(/\s*\(\d+\)\s*$/, '').trim();
   }
 
   // Returns the lane (column) name for a given card by walking up the DOM.
+  // If the walk-up finds no header (e.g. lane headers and card lists are in
+  // parallel DOM branches), falls back to positional matching.
   function findCardLane(card) {
     let el = card.parentElement;
     while (el && el !== document.body) {
@@ -188,14 +217,42 @@
         try {
           const found = el.querySelector(sel);
           if (found) {
-            const text = normalizeLaneName(found.textContent.trim());
+            const text = getLaneTitleText(found);
             if (text) return text;
           }
         } catch (_) {}
       }
       el = el.parentElement;
     }
-    return null;
+    // Positional fallback: find the lane header whose horizontal centre is
+    // closest to this card's horizontal centre (works even when headers and
+    // cards live in separate DOM subtrees).
+    return findCardLaneByPosition(card);
+  }
+
+  // Positional lane-name lookup: aligns card x-position with header x-position.
+  function findCardLaneByPosition(card) {
+    try {
+      const cardRect = card.getBoundingClientRect();
+      if (cardRect.width === 0 && cardRect.height === 0) return null;
+      const cardCenterX = cardRect.left + cardRect.width / 2;
+      let closestName = null;
+      let minDist = Infinity;
+      for (const sel of LANE_TITLE_SELECTORS) {
+        document.querySelectorAll(sel).forEach((titleEl) => {
+          const name = getLaneTitleText(titleEl);
+          if (!name) return;
+          const r = titleEl.getBoundingClientRect();
+          if (r.width === 0 && r.height === 0) return;
+          const dist = Math.abs((r.left + r.width / 2) - cardCenterX);
+          if (dist < minDist) { minDist = dist; closestName = name; }
+        });
+        if (closestName !== null) break;
+      }
+      return closestName;
+    } catch (_) {
+      return null;
+    }
   }
 
   // Returns all unique lane names currently visible on the board.
@@ -204,12 +261,15 @@
     for (const sel of LANE_TITLE_SELECTORS) {
       try {
         document.querySelectorAll(sel).forEach((el) => {
-          const text = normalizeLaneName(el.textContent.trim());
+          const text = getLaneTitleText(el);
           if (text && !lanes.includes(text)) lanes.push(text);
         });
       } catch (_) {}
+      // Use the first selector that finds anything to avoid duplicates from
+      // broader selectors matching the same elements.
+      if (lanes.length > 0) break;
     }
-    // Fallback: derive from cards if direct header query found nothing
+    // Fallback: derive from cards if no header elements were found
     if (lanes.length === 0) {
       document.querySelectorAll('.vtb-card-component-wrapper').forEach((card) => {
         const lane = findCardLane(card);
