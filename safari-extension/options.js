@@ -1,6 +1,3 @@
-// Safari version: uses browser.storage.sync (Promise-based WebExtensions API)
-// instead of chrome.storage.sync (callback-based Chrome API).
-
 document.addEventListener('DOMContentLoaded', function () {
   const DEFAULT_UPDATE_THRESHOLD_DAYS = 6;
   const DEFAULT_UPDATE_INDICATOR = {
@@ -46,44 +43,43 @@ document.addEventListener('DOMContentLoaded', function () {
   const previewBadge = document.getElementById('previewBadge');
   const previewFresh = document.getElementById('previewFresh');
   const previewStale = document.getElementById('previewStale');
+  const wipLanesSection = document.getElementById('wipLanesSection');
+  const wipLanesList = document.getElementById('wipLanesList');
 
   let fullConfig = null;
   let currentBoardId = null; // null means default config
 
-  // Load config from browser.storage.sync (Safari/WebExtensions) or fallback to defaults.
+  // Load config from chrome.storage.sync or fallback to defaults.
   function loadConfig(callback) {
     if (
-      typeof browser !== 'undefined' &&
-      browser.storage &&
-      browser.storage.sync
+      typeof chrome !== 'undefined' &&
+      chrome.storage &&
+      chrome.storage.sync
     ) {
-      browser.storage.sync.get(
-        { vtbEnhancerConfig: defaultStorage }
-      ).then(function (data) {
-        let cfg = data.vtbEnhancerConfig;
-        // Migrate old format { ageBands: [...] }
-        if (cfg && cfg.ageBands) {
-          cfg = { defaultConfig: cfg, boards: {} };
+      chrome.storage.sync.get(
+        { vtbEnhancerConfig: defaultStorage },
+        function (data) {
+          let cfg = data.vtbEnhancerConfig;
+          // Migrate old format { ageBands: [...] }
+          if (cfg && cfg.ageBands) {
+            cfg = { defaultConfig: cfg, boards: {} };
+          }
+          callback(normalizeConfigStructure(cfg));
         }
-        callback(normalizeConfigStructure(cfg));
-      }).catch(function () {
-        callback(normalizeConfigStructure(defaultStorage));
-      });
+      );
     } else {
       callback(normalizeConfigStructure(defaultStorage));
     }
   }
 
-  // Save configuration using browser.storage.sync.
+  // Save configuration using chrome.storage.sync.
   function saveConfig(config, callback) {
     if (
-      typeof browser !== 'undefined' &&
-      browser.storage &&
-      browser.storage.sync
+      typeof chrome !== 'undefined' &&
+      chrome.storage &&
+      chrome.storage.sync
     ) {
-      browser.storage.sync.set({ vtbEnhancerConfig: config }).then(function () {
-        if (callback) callback();
-      }).catch(function () {
+      chrome.storage.sync.set({ vtbEnhancerConfig: config }, function () {
         if (callback) callback();
       });
     } else {
@@ -180,6 +176,50 @@ document.addEventListener('DOMContentLoaded', function () {
     return { freshEmoji: fresh, staleEmoji: stale };
   }
 
+  function renderWipLanes(boardId) {
+    if (!boardId) {
+      wipLanesSection.style.display = 'none';
+      return;
+    }
+    const boardCfg = fullConfig.boards[boardId];
+    const lanes = (boardCfg && Array.isArray(boardCfg.lanes)) ? boardCfg.lanes : [];
+    const wipLanes = (boardCfg && Array.isArray(boardCfg.wipLanes)) ? boardCfg.wipLanes : [];
+
+    wipLanesList.innerHTML = '';
+    if (lanes.length === 0) {
+      const hint = document.createElement('p');
+      hint.className = 'field-help';
+      hint.textContent = 'No lanes discovered yet. Visit this board in ServiceNow, then return here to configure WIP lanes.';
+      wipLanesList.appendChild(hint);
+    } else {
+      lanes.forEach((lane) => {
+        const item = document.createElement('div');
+        item.className = 'lane-checkbox-item';
+        const cb = document.createElement('input');
+        cb.type = 'checkbox';
+        const safeId = 'lane-' + lane.replace(/[^a-z0-9]/gi, '-');
+        cb.id = safeId;
+        cb.value = lane;
+        cb.checked = wipLanes.includes(lane);
+        const lbl = document.createElement('label');
+        lbl.htmlFor = safeId;
+        lbl.textContent = lane;
+        item.appendChild(cb);
+        item.appendChild(lbl);
+        wipLanesList.appendChild(item);
+      });
+    }
+    wipLanesSection.style.display = '';
+  }
+
+  function getWipLanesFromUI() {
+    const checked = [];
+    wipLanesList.querySelectorAll('input[type="checkbox"]:checked').forEach((cb) => {
+      checked.push(cb.value);
+    });
+    return checked;
+  }
+
   function toggleSettingsVisibility() {
     const showAge = ageBadgeToggle.checked;
     const showUpdate = updateIndicatorToggle.checked;
@@ -255,6 +295,8 @@ document.addEventListener('DOMContentLoaded', function () {
       const row = createRow(band);
       tableBody.appendChild(row);
     });
+
+    renderWipLanes(currentBoardId);
   }
 
   function refreshTable() {
@@ -438,6 +480,7 @@ document.addEventListener('DOMContentLoaded', function () {
       fullConfig.boards[currentBoardId].ageBands = newBands;
       fullConfig.boards[currentBoardId].updateThresholdDays = thresholdValue;
       fullConfig.boards[currentBoardId].updateIndicator = indicatorValue;
+      fullConfig.boards[currentBoardId].wipLanes = getWipLanesFromUI();
     } else {
       fullConfig.defaultConfig.enableAgeBadge = ageBadgeEnabled;
       fullConfig.defaultConfig.enableUpdateIndicator = updateIndicatorEnabled;
@@ -461,6 +504,7 @@ document.addEventListener('DOMContentLoaded', function () {
         delete fullConfig.boards[currentBoardId].updateIndicator;
         delete fullConfig.boards[currentBoardId].enableAgeBadge;
         delete fullConfig.boards[currentBoardId].enableUpdateIndicator;
+        delete fullConfig.boards[currentBoardId].wipLanes;
       }
     } else {
       fullConfig.defaultConfig = cloneDefaultConfig();

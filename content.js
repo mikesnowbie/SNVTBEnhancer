@@ -1,6 +1,6 @@
 /*
   ServiceNow Visual Task Board Enhancer - Work Item Age
-  Version 0.9.6
+  Version 0.10.0
   - Waits until the board has fully loaded all cards (using a MutationObserver with a debounce)
     before processing any cards or displaying a status message.
   - Processes each card to calculate and display an "Age" badge. It prefers the card’s "Actual start date", which teams can manage independently of when the record was opened, and treats "Start date" as the same starting point before finally falling back to "Opened" when no start date exists.
@@ -117,6 +117,13 @@
                     : cfg.defaultConfig.updateIndicator.staleEmoji,
               };
             }
+
+            if (!Array.isArray(boardCfg.wipLanes)) {
+              boardCfg.wipLanes = [];
+            }
+            if (!Array.isArray(boardCfg.lanes)) {
+              boardCfg.lanes = [];
+            }
           });
           callback(cfg);
         }
@@ -148,12 +155,21 @@
     const label = document.querySelector('label.sn-navhub-title');
     if (!label) return;
     const name = label.textContent.trim();
+    const discoveredLanes = discoverLanes();
     if (!cfg.boards[boardId]) {
-      cfg.boards[boardId] = { name: name };
+      cfg.boards[boardId] = { name, lanes: discoveredLanes };
       saveConfig(cfg);
-    } else if (cfg.boards[boardId].name !== name) {
-      cfg.boards[boardId].name = name;
-      saveConfig(cfg);
+    } else {
+      let changed = false;
+      if (cfg.boards[boardId].name !== name) {
+        cfg.boards[boardId].name = name;
+        changed = true;
+      }
+      if (discoveredLanes.length > 0) {
+        cfg.boards[boardId].lanes = discoveredLanes;
+        changed = true;
+      }
+      if (changed) saveConfig(cfg);
     }
   }
 
@@ -198,6 +214,8 @@
       updateIndicator: normalizedIndicator,
       enableAgeBadge,
       enableUpdateIndicator,
+      // wipLanes: empty array means show on all cards; non-empty restricts to named lanes only.
+      wipLanes: boardConfig && Array.isArray(boardConfig.wipLanes) ? boardConfig.wipLanes : [],
     };
     // --- Utility Functions ---
     function showDebugMessage(msg) {
@@ -387,6 +405,15 @@
     }
 
     function computeUpdateIndicatorState(timeElement) {
+      // When WIP lanes are configured, suppress the indicator on non-WIP cards.
+      if (config.wipLanes && config.wipLanes.length > 0) {
+        const card = timeElement.closest('.vtb-card-component-wrapper');
+        if (card) {
+          const laneName = findCardLane(card);
+          if (laneName !== null && !config.wipLanes.includes(laneName)) return null;
+        }
+      }
+
       const timestampString = getTimestampString(timeElement);
       const lastUpdated = parseServiceNowDateTime(timestampString);
       if (!lastUpdated) return null;
@@ -607,6 +634,55 @@
 
     function normalizeDateLabel(text) {
       return text.trim().replace(/\s*:\s*$/, '').toLocaleLowerCase();
+    }
+
+    // CSS selectors tried in order when searching for a lane/column title element.
+    // ServiceNow VTB renders lanes as columns; the title is typically in a header child.
+    const LANE_TITLE_SELECTORS = [
+      '.vtb-lane-header-title',
+      '.sn-board-header-title',
+      '.vtb-board-header-title',
+      '[class*="lane-header"] [class*="title"]',
+      '[class*="lane"] > [class*="header"] > [class*="title"]',
+    ];
+
+    // Returns the lane (column) name for a given card by walking up the DOM.
+    function findCardLane(card) {
+      let el = card.parentElement;
+      while (el && el !== document.body) {
+        for (const sel of LANE_TITLE_SELECTORS) {
+          try {
+            const found = el.querySelector(sel);
+            if (found) {
+              const text = found.textContent.trim();
+              if (text) return text;
+            }
+          } catch (_) {}
+        }
+        el = el.parentElement;
+      }
+      return null;
+    }
+
+    // Returns all unique lane names currently visible on the board.
+    function discoverLanes() {
+      const lanes = [];
+      for (const sel of LANE_TITLE_SELECTORS) {
+        try {
+          document.querySelectorAll(sel).forEach((el) => {
+            const text = el.textContent.trim();
+            if (text && !lanes.includes(text)) lanes.push(text);
+          });
+        } catch (_) {}
+      }
+      // Fallback: derive from cards if direct header query found nothing
+      if (lanes.length === 0) {
+        document.querySelectorAll('.vtb-card-component-wrapper').forEach((card) => {
+          const lane = findCardLane(card);
+          if (lane && !lanes.includes(lane)) lanes.push(lane);
+        });
+      }
+      return lanes;
     }
 
     const DATE_LABELS = {
