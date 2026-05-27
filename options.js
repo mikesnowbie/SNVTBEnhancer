@@ -43,6 +43,12 @@ document.addEventListener('DOMContentLoaded', function () {
   const previewBadge = document.getElementById('previewBadge');
   const previewFresh = document.getElementById('previewFresh');
   const previewStale = document.getElementById('previewStale');
+  const sleDaysInput = document.getElementById('sleDaysInput');
+  const sleApproachingInput = document.getElementById('sleApproachingInput');
+  const sleSummaryToggle = document.getElementById('sleSummaryToggle');
+  const sleEscalationToggle = document.getElementById('sleEscalationToggle');
+  const sleDefaultHint = document.getElementById('sleDefaultHint');
+  const sleFields = document.getElementById('sleFields');
 
   let fullConfig = null;
   let currentBoardId = null; // null means default config
@@ -153,6 +159,15 @@ document.addEventListener('DOMContentLoaded', function () {
         typeof boardCfg.enableUpdateIndicator === 'boolean'
           ? boardCfg.enableUpdateIndicator
           : cfg.defaultConfig.enableUpdateIndicator;
+
+      if (!boardCfg.sle || typeof boardCfg.sle !== 'object') {
+        boardCfg.sle = { days: 0, approachingDays: 3, showSummary: true, showBadgeEscalation: true };
+      } else {
+        if (typeof boardCfg.sle.days !== 'number' || boardCfg.sle.days < 0) boardCfg.sle.days = 0;
+        if (typeof boardCfg.sle.approachingDays !== 'number' || boardCfg.sle.approachingDays < 0) boardCfg.sle.approachingDays = 3;
+        if (typeof boardCfg.sle.showSummary !== 'boolean') boardCfg.sle.showSummary = true;
+        if (typeof boardCfg.sle.showBadgeEscalation !== 'boolean') boardCfg.sle.showBadgeEscalation = true;
+      }
     });
 
     return cfg;
@@ -172,6 +187,35 @@ document.addEventListener('DOMContentLoaded', function () {
         ? source.staleEmoji
         : base.staleEmoji;
     return { freshEmoji: fresh, staleEmoji: stale };
+  }
+
+  function updateSleVisibility() {
+    if (currentBoardId) {
+      sleDefaultHint.style.display = 'none';
+      sleFields.style.display = '';
+    } else {
+      sleDefaultHint.style.display = '';
+      sleFields.style.display = 'none';
+    }
+  }
+
+  function renderSleToUI(sle) {
+    const s = sle || { days: 0, approachingDays: 3, showSummary: true, showBadgeEscalation: true };
+    sleDaysInput.value = s.days;
+    sleApproachingInput.value = s.approachingDays;
+    sleSummaryToggle.checked = s.showSummary !== false;
+    sleEscalationToggle.checked = s.showBadgeEscalation !== false;
+  }
+
+  function getSleFromInputs() {
+    const days = parseInt(sleDaysInput.value, 10);
+    const approachingDays = parseInt(sleApproachingInput.value, 10);
+    return {
+      days: isNaN(days) || days < 0 ? 0 : days,
+      approachingDays: isNaN(approachingDays) || approachingDays < 0 ? 3 : approachingDays,
+      showSummary: sleSummaryToggle.checked,
+      showBadgeEscalation: sleEscalationToggle.checked,
+    };
   }
 
   function toggleSettingsVisibility() {
@@ -249,6 +293,12 @@ document.addEventListener('DOMContentLoaded', function () {
       const row = createRow(band);
       tableBody.appendChild(row);
     });
+
+    updateSleVisibility();
+    if (currentBoardId) {
+      const boardSle = fullConfig.boards[currentBoardId] && fullConfig.boards[currentBoardId].sle;
+      renderSleToUI(boardSle);
+    }
   }
 
   function refreshTable() {
@@ -392,6 +442,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
   boardSelect.addEventListener('change', () => {
     currentBoardId = boardSelect.value || null;
+    updateSleVisibility();
     renderConfigToUI(getCurrentConfig());
   });
 
@@ -432,6 +483,7 @@ document.addEventListener('DOMContentLoaded', function () {
       fullConfig.boards[currentBoardId].ageBands = newBands;
       fullConfig.boards[currentBoardId].updateThresholdDays = thresholdValue;
       fullConfig.boards[currentBoardId].updateIndicator = indicatorValue;
+      fullConfig.boards[currentBoardId].sle = getSleFromInputs();
     } else {
       fullConfig.defaultConfig.enableAgeBadge = ageBadgeEnabled;
       fullConfig.defaultConfig.enableUpdateIndicator = updateIndicatorEnabled;
@@ -455,6 +507,7 @@ document.addEventListener('DOMContentLoaded', function () {
         delete fullConfig.boards[currentBoardId].updateIndicator;
         delete fullConfig.boards[currentBoardId].enableAgeBadge;
         delete fullConfig.boards[currentBoardId].enableUpdateIndicator;
+        delete fullConfig.boards[currentBoardId].sle;
       }
     } else {
       fullConfig.defaultConfig = cloneDefaultConfig();

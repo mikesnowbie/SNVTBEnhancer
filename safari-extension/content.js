@@ -1,6 +1,6 @@
 /*
   ServiceNow Visual Task Board Enhancer - Work Item Age
-  Version 0.9.2 (Safari)
+  Version 0.10.0 (Safari)
   - Uses browser.* namespace (WebExtensions API) for Safari compatibility.
   - Waits until the board has fully loaded all cards (using a MutationObserver with a debounce)
     before processing any cards or displaying a status message.
@@ -118,6 +118,16 @@
                   : cfg.defaultConfig.updateIndicator.staleEmoji,
             };
           }
+
+          // Normalize SLE config
+          if (!boardCfg.sle || typeof boardCfg.sle !== 'object') {
+            boardCfg.sle = { days: 0, approachingDays: 3, showSummary: true, showBadgeEscalation: true };
+          } else {
+            if (typeof boardCfg.sle.days !== 'number' || boardCfg.sle.days < 0) boardCfg.sle.days = 0;
+            if (typeof boardCfg.sle.approachingDays !== 'number' || boardCfg.sle.approachingDays < 0) boardCfg.sle.approachingDays = 3;
+            if (typeof boardCfg.sle.showSummary !== 'boolean') boardCfg.sle.showSummary = true;
+            if (typeof boardCfg.sle.showBadgeEscalation !== 'boolean') boardCfg.sle.showBadgeEscalation = true;
+          }
         });
         callback(cfg);
       }).catch(function () {
@@ -202,6 +212,9 @@
       updateIndicator: normalizedIndicator,
       enableAgeBadge,
       enableUpdateIndicator,
+      sle: boardConfig && boardConfig.sle
+        ? boardConfig.sle
+        : { days: 0, approachingDays: 3, showSummary: true, showBadgeEscalation: true },
     };
     // --- Utility Functions ---
     function showDebugMessage(msg) {
@@ -628,6 +641,66 @@
       }
     }
 
+    // Applies an SLE escalation outline to a badge element based on how close age is to the SLE.
+    function applySleEscalationToBadge(badge, age, sle) {
+      if (!sle || sle.days <= 0 || !sle.showBadgeEscalation) return;
+      if (age >= sle.days) {
+        badge.style.outline = '2px solid #c0392b';
+        badge.style.outlineOffset = '2px';
+      } else if (sle.approachingDays > 0 && age >= sle.days - sle.approachingDays) {
+        badge.style.outline = '2px dashed #e67e22';
+        badge.style.outlineOffset = '2px';
+      }
+    }
+
+    // Reads ages stored on cards and updates (or removes) the SLE summary bar near the board title.
+    function renderSleSummaryBar() {
+      const existing = document.getElementById('vtb-enhancer-sle-bar');
+      const sle = config.sle;
+      if (!sle || sle.days <= 0 || !sle.showSummary) {
+        if (existing) existing.remove();
+        return;
+      }
+
+      let over = 0, approaching = 0;
+      document.querySelectorAll('.vtb-card-component-wrapper').forEach((card) => {
+        const ageStr = card.getAttribute('data-task-age-days');
+        if (ageStr === null) return;
+        const age = parseInt(ageStr, 10);
+        if (isNaN(age) || age < 0) return;
+        if (age >= sle.days) over++;
+        else if (sle.approachingDays > 0 && age >= sle.days - sle.approachingDays) approaching++;
+      });
+
+      const bar = existing || document.createElement('div');
+      bar.id = 'vtb-enhancer-sle-bar';
+      Object.assign(bar.style, {
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: '10px',
+        padding: '3px 10px',
+        backgroundColor: over > 0 ? '#fdecea' : '#fff8e1',
+        border: `1px solid ${over > 0 ? '#c0392b' : '#f39c12'}`,
+        borderRadius: '4px',
+        fontSize: '12px',
+        fontWeight: '500',
+        marginLeft: '12px',
+        verticalAlign: 'middle',
+        lineHeight: '1.4',
+      });
+      bar.innerHTML =
+        `<span>SLE: ${sle.days}d</span>` +
+        `<span style="color:#c0392b;">▲ ${over} over</span>` +
+        `<span style="color:#e67e22;">⚠ ${approaching} approaching</span>`;
+
+      if (!existing) {
+        const label = document.querySelector('label.sn-navhub-title');
+        if (label && label.parentNode) {
+          label.parentNode.insertBefore(bar, label.nextSibling);
+        }
+      }
+    }
+
     function createBadge(text, bgColor) {
       const badge = document.createElement('div');
       badge.textContent = text;
@@ -695,11 +768,13 @@
           `Age: ${age} day${age !== 1 ? 's' : ''}`,
           badgeColor
         );
+        applySleEscalationToBadge(badge, age, config.sle);
         if (getComputedStyle(card).position === 'static') {
           card.style.position = 'relative';
         }
         card.appendChild(badge);
         card.setAttribute('data-task-age-enhanced', 'true');
+        card.setAttribute('data-task-age-days', age);
         updatedCount++;
       } catch (err) {
         console.error('Work Item Age Error:', err);
@@ -717,7 +792,13 @@
 
     function observeCards() {
       if (!config.enableAgeBadge && !config.enableUpdateIndicator) return;
+      let sleBarTimer = null;
+      const debouncedSleUpdate = () => {
+        if (sleBarTimer) clearTimeout(sleBarTimer);
+        sleBarTimer = setTimeout(renderSleSummaryBar, 500);
+      };
       const observer = new MutationObserver((mutations) => {
+        let cardChanged = false;
         mutations.forEach((mutation) => {
           mutation.addedNodes.forEach((node) => {
             if (node.nodeType === Node.ELEMENT_NODE) {
@@ -733,14 +814,17 @@
                   }
                 });
               }
-              if (node.classList.contains('vtb-card-component-wrapper'))
+              if (node.classList.contains('vtb-card-component-wrapper')) {
                 processCard(node);
+                cardChanged = true;
+              }
               node
                 .querySelectorAll?.('.vtb-card-component-wrapper')
-                .forEach(processCard);
+                .forEach((card) => { processCard(card); cardChanged = true; });
             }
           });
         });
+        if (cardChanged && config.sle && config.sle.days > 0) debouncedSleUpdate();
       });
       observer.observe(document.body, { childList: true, subtree: true });
     }
@@ -779,6 +863,7 @@
           return;
         }
         processExistingCards();
+        renderSleSummaryBar();
         const ageMessage = config.enableAgeBadge
           ? `Updated ${updatedCount} cards with Work Item Age`
           : 'Work Item Age badge disabled';

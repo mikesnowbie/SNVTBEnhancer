@@ -3,15 +3,14 @@
   <head>
     <meta charset="utf-8" />
     <title>ServiceNow VTB Enhancer Options</title>
-    <!--
-      Safari version: Google Fonts CDN link removed.
-      Safari extension pages apply a strict Content Security Policy that blocks
-      external stylesheet requests by default. System fonts are used instead.
-    -->
+    <link
+      href="https://fonts.googleapis.com/css?family=Roboto:400,500"
+      rel="stylesheet"
+    />
     <style>
       /* Modern UI styles */
       body {
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        font-family: "Roboto", sans-serif;
         background-color: #f4f7f9;
         margin: 0;
         padding: 20px;
@@ -259,7 +258,7 @@
       </div>
       <div class="section-title">Last Updated Freshness Indicator</div>
       <p class="field-help">
-        When enabled, a fresh or stale emoji appears beside the card's last
+        When enabled, a fresh or stale emoji appears beside the card’s last
         updated timestamp (bottom right corner of each VTB card). Set the
         threshold in days to split fresh vs. stale, and pick emojis; leaving
         them blank falls back to defaults.
@@ -325,6 +324,61 @@
           </div>
         </div>
       </div>
+      <div class="section-title">Service Level Expectations</div>
+      <p class="field-help">
+        Set an SLE target (in days) for this board. When set, age badges show a
+        colored border as cards approach or exceed the target, and a summary
+        counter appears near the board title. SLE is configured per board —
+        select a board above to set its target.
+      </p>
+      <div id="sleSection">
+        <p class="field-help" id="sleDefaultHint" style="display:none;">
+          Select a specific board from the dropdown above to configure its SLE.
+        </p>
+        <div id="sleFields">
+          <div class="field-group">
+            <label for="sleDaysInput">SLE target (days, 0 = disabled):</label>
+            <input type="number" id="sleDaysInput" min="0" step="1" value="0" />
+            <p class="field-help">
+              Cards older than this many days are considered over SLE.
+            </p>
+          </div>
+          <div class="field-group">
+            <label for="sleApproachingInput">Approaching warning (days before SLE):</label>
+            <input type="number" id="sleApproachingInput" min="0" step="1" value="3" />
+            <p class="field-help">
+              Show an approaching warning when a card is within this many days of
+              the SLE target.
+            </p>
+          </div>
+          <div class="field-group">
+            <div class="toggle-row">
+              <label class="switch">
+                <input type="checkbox" id="sleSummaryToggle" checked />
+                <span class="slider"></span>
+              </label>
+              <span>Show board summary bar</span>
+            </div>
+            <p class="field-help">
+              Display over/approaching counts near the board title when the VTB
+              is open.
+            </p>
+          </div>
+          <div class="field-group">
+            <div class="toggle-row">
+              <label class="switch">
+                <input type="checkbox" id="sleEscalationToggle" checked />
+                <span class="slider"></span>
+              </label>
+              <span>Escalate age badge appearance near SLE</span>
+            </div>
+            <p class="field-help">
+              Add a dashed orange border (approaching) or solid red border (over)
+              to the age badge as items near the SLE target.
+            </p>
+          </div>
+        </div>
+      </div>
       <div class="actions-bar">
         <button id="saveBtn" class="btn">Save</button>
         <button id="resetBtn" class="btn btn-secondary">
@@ -336,3 +390,4 @@
     <script src="options.js"></script>
   </body>
 </html>
+
