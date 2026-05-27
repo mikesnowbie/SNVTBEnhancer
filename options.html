@@ -197,6 +197,23 @@
         color: #666;
         margin-top: 4px;
       }
+      .lane-checkbox-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 4px 0;
+      }
+      .lane-checkbox-item input[type="checkbox"] {
+        width: 16px;
+        height: 16px;
+        cursor: pointer;
+        flex-shrink: 0;
+      }
+      .lane-checkbox-item label {
+        cursor: pointer;
+        font-weight: 400;
+        margin: 0;
+      }
     </style>
   </head>
   <body>
@@ -310,6 +327,16 @@
             Choose the emoji shown after the "time ago" text. Leave blank to
             fall back to the default icons.
           </p>
+        </div>
+        <div class="field-group" id="wipLanesSection" style="display:none;">
+          <label>WIP Lanes:</label>
+          <p class="field-help">
+            Check the lanes where the freshness indicator should appear. Leave
+            all unchecked to show on every card regardless of lane.
+          </p>
+          <div id="wipLanesList" style="margin-top: 8px;">
+            <!-- dynamically populated by options.js -->
+          </div>
         </div>
         <div class="preview-card" id="updatePreview">
           <div class="preview-text" style="width:100%;">
