@@ -47,10 +47,7 @@ document.addEventListener('DOMContentLoaded', function () {
   const wipLanesList = document.getElementById('wipLanesList');
   const exportBtn = document.getElementById('exportBtn');
   const importBtn = document.getElementById('importBtn');
-  const importArea = document.getElementById('importArea');
-  const importTextarea = document.getElementById('importTextarea');
-  const applyImportBtn = document.getElementById('applyImportBtn');
-  const cancelImportBtn = document.getElementById('cancelImportBtn');
+  const importFileInput = document.getElementById('importFileInput');
   const sleDaysInput = document.getElementById('sleDaysInput');
   const sleApproachingInput = document.getElementById('sleApproachingInput');
   const sleSummaryToggle = document.getElementById('sleSummaryToggle');
@@ -500,10 +497,6 @@ document.addEventListener('DOMContentLoaded', function () {
     const show = !!currentBoardId;
     exportBtn.style.display = show ? '' : 'none';
     importBtn.style.display = show ? '' : 'none';
-    if (!show) {
-      importArea.style.display = 'none';
-      importTextarea.value = '';
-    }
   }
 
   function exportBoardConfig() {
@@ -592,27 +585,26 @@ document.addEventListener('DOMContentLoaded', function () {
   exportBtn.addEventListener('click', exportBoardConfig);
 
   importBtn.addEventListener('click', () => {
-    importArea.style.display = importArea.style.display === 'none' ? '' : 'none';
-    importTextarea.value = '';
+    importFileInput.value = '';
+    importFileInput.click();
   });
 
-  cancelImportBtn.addEventListener('click', () => {
-    importArea.style.display = 'none';
-    importTextarea.value = '';
-  });
-
-  applyImportBtn.addEventListener('click', () => {
-    const err = applyImportedConfig(importTextarea.value.trim());
-    if (err) {
-      statusDiv.textContent = err;
-    } else {
-      importArea.style.display = 'none';
-      importTextarea.value = '';
-      saveConfig(fullConfig, () => {
-        statusDiv.textContent = 'Settings imported and saved.';
-        setTimeout(() => { statusDiv.textContent = ''; }, 3000);
-      });
-    }
+  importFileInput.addEventListener('change', () => {
+    const file = importFileInput.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const err = applyImportedConfig(e.target.result);
+      if (err) {
+        statusDiv.textContent = err;
+      } else {
+        saveConfig(fullConfig, () => {
+          statusDiv.textContent = 'Settings imported and saved.';
+          setTimeout(() => { statusDiv.textContent = ''; }, 3000);
+        });
+      }
+    };
+    reader.readAsText(file);
   });
 
   // --- End Export / Import ---
