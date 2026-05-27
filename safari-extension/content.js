@@ -337,9 +337,11 @@
         if (!isNaN(parsedDate)) return parsedDate;
       }
 
-      const isoCandidate = trimmed.replace(' ', 'T');
-      const isoDate = new Date(isoCandidate);
-      if (!isNaN(isoDate)) return isoDate;
+      if (/^\d{4}[-T]/.test(trimmed)) {
+        const isoCandidate = trimmed.replace(' ', 'T');
+        const isoDate = new Date(isoCandidate);
+        if (!isNaN(isoDate)) return isoDate;
+      }
 
       const baseMatch = trimmed.match(
         /^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})/
@@ -888,10 +890,9 @@
       if (card.hasAttribute('data-task-age-enhanced')) return;
       try {
         annotateLastUpdated(card);
-        if (!config.enableAgeBadge) return;
         const state = findState(card);
-        if (state) {
-          if (isCompletionState(state)) {
+        if (state && isCompletionState(state)) {
+          if (config.enableAgeBadge) {
             const badge = createBadge('Done', '#28a745');
             if (getComputedStyle(card).position === 'static') {
               card.style.position = 'relative';
@@ -899,13 +900,15 @@
             card.appendChild(badge);
             card.setAttribute('data-task-age-enhanced', 'true');
             updatedCount++;
-            return;
           }
+          return;
         }
         const startDate = findStartDate(card);
         if (!startDate) return;
         const age = calculateDaysDiff(startDate);
         if (age === null) return;
+        card.setAttribute('data-task-age-days', age);
+        if (!config.enableAgeBadge) return;
         const badgeColor = getBadgeColor(age);
         const badge = createBadge(
           `Age: ${age} day${age !== 1 ? 's' : ''}`,
@@ -917,7 +920,6 @@
         }
         card.appendChild(badge);
         card.setAttribute('data-task-age-enhanced', 'true');
-        card.setAttribute('data-task-age-days', age);
         updatedCount++;
       } catch (err) {
         console.error('Work Item Age Error:', err);

@@ -61,37 +61,36 @@ document.addEventListener('DOMContentLoaded', function () {
   let fullConfig = null;
   let currentBoardId = null; // null means default config
 
-  // Load config from chrome.storage.sync or fallback to defaults.
+  // Load config from browser.storage.sync or fallback to defaults.
   function loadConfig(callback) {
     if (
-      typeof chrome !== 'undefined' &&
-      chrome.storage &&
-      chrome.storage.sync
+      typeof browser !== 'undefined' &&
+      browser.storage &&
+      browser.storage.sync
     ) {
-      chrome.storage.sync.get(
-        { vtbEnhancerConfig: defaultStorage },
-        function (data) {
-          let cfg = data.vtbEnhancerConfig;
-          // Migrate old format { ageBands: [...] }
-          if (cfg && cfg.ageBands) {
-            cfg = { defaultConfig: cfg, boards: {} };
-          }
-          callback(normalizeConfigStructure(cfg));
+      browser.storage.sync.get({ vtbEnhancerConfig: defaultStorage }).then(function (data) {
+        let cfg = data.vtbEnhancerConfig;
+        // Migrate old format { ageBands: [...] }
+        if (cfg && cfg.ageBands) {
+          cfg = { defaultConfig: cfg, boards: {} };
         }
-      );
+        callback(normalizeConfigStructure(cfg));
+      }).catch(function () {
+        callback(normalizeConfigStructure(defaultStorage));
+      });
     } else {
       callback(normalizeConfigStructure(defaultStorage));
     }
   }
 
-  // Save configuration using chrome.storage.sync.
+  // Save configuration using browser.storage.sync.
   function saveConfig(config, callback) {
     if (
-      typeof chrome !== 'undefined' &&
-      chrome.storage &&
-      chrome.storage.sync
+      typeof browser !== 'undefined' &&
+      browser.storage &&
+      browser.storage.sync
     ) {
-      chrome.storage.sync.set({ vtbEnhancerConfig: config }, function () {
+      browser.storage.sync.set({ vtbEnhancerConfig: config }).then(function () {
         if (callback) callback();
       });
     } else {
