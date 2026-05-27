@@ -204,25 +204,37 @@
   }
 
   // Returns the lane (column) name for a given card by walking up the DOM.
-  // If the walk-up finds no header (e.g. lane headers and card lists are in
-  // parallel DOM branches), falls back to positional matching.
+  //
+  // Key constraint: we use querySelectorAll (not querySelector) and only accept
+  // the result when exactly ONE title element is found within the current ancestor.
+  // This prevents the common failure mode where the walk-up reaches a board-level
+  // container that holds ALL lane headers — querySelector would return the first
+  // lane in the DOM (e.g. "Backlog") for every card regardless of their actual lane.
+  // When multiple titles are found, we break the inner loop (stop trying selectors
+  // at this level) and continue to the parent, eventually falling back to positional
+  // matching if no single-lane ancestor is ever found.
   function findCardLane(card) {
     let el = card.parentElement;
     while (el && el !== document.body) {
       for (const sel of LANE_TITLE_SELECTORS) {
         try {
-          const found = el.querySelector(sel);
-          if (found) {
-            const text = getLaneTitleText(found);
+          const matches = el.querySelectorAll(sel);
+          if (matches.length === 1) {
+            const text = getLaneTitleText(matches[0]);
             if (text) return text;
+          } else if (matches.length > 1) {
+            // This ancestor spans multiple lanes — stop testing selectors here
+            // and move up to the next parent.
+            break;
           }
+          // length === 0: no title in this subtree via this selector; try next
         } catch (_) {}
       }
       el = el.parentElement;
     }
-    // Positional fallback: find the lane header whose horizontal centre is
-    // closest to this card's horizontal centre (works even when headers and
-    // cards live in separate DOM subtrees).
+    // Walk-up could not isolate a single-lane ancestor — fall back to positional
+    // matching (works for boards where headers and card columns are in parallel
+    // DOM branches, e.g. sticky-header layouts).
     return findCardLaneByPosition(card);
   }
 
