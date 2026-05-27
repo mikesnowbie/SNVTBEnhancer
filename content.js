@@ -1,6 +1,6 @@
 /*
   ServiceNow Visual Task Board Enhancer - Work Item Age
-  Version 0.10.0
+  Version 1.0.0
   - Waits until the board has fully loaded all cards (using a MutationObserver with a debounce)
     before processing any cards or displaying a status message.
   - Processes each card to calculate and display an "Age" badge. It prefers the card’s "Actual start date", which teams can manage independently of when the record was opened, and treats "Start date" as the same starting point before finally falling back to "Opened" when no start date exists.

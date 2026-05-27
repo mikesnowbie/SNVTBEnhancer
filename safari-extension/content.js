@@ -1,6 +1,6 @@
 /*
   ServiceNow Visual Task Board Enhancer - Work Item Age
-  Version 0.10.0 (Safari)
+  Version 1.0.0 (Safari)
   - Uses browser.* namespace (WebExtensions API) for Safari compatibility.
   - Waits until the board has fully loaded all cards (using a MutationObserver with a debounce)
     before processing any cards or displaying a status message.
