@@ -491,15 +491,17 @@
     }
 
     function removeExistingUpdateIndicator(timeElement) {
-      const existingIndicator = timeElement.querySelector(
-        '.vtb-enhancer-update-indicator'
-      );
-      if (existingIndicator) existingIndicator.remove();
-
-      const existingSrText = timeElement.querySelector(
-        '.vtb-enhancer-update-indicator-text'
-      );
-      if (existingSrText) existingSrText.remove();
+      const snTimeAgo = timeElement.closest('sn-time-ago');
+      const host = snTimeAgo ? snTimeAgo.parentElement : null;
+      if (!host) return;
+      Array.from(host.children).forEach((child) => {
+        if (
+          child.classList.contains('vtb-enhancer-update-indicator') ||
+          child.classList.contains('vtb-enhancer-update-indicator-text')
+        ) {
+          child.remove();
+        }
+      });
     }
 
     function getIndicatorEmojis() {
@@ -591,17 +593,19 @@
 
     function applyUpdateIndicator(timeElement) {
       const state = computeUpdateIndicatorState(timeElement);
-      const existingIndicator = timeElement.querySelector(
-        '.vtb-enhancer-update-indicator'
+      const snTimeAgo = timeElement.closest('sn-time-ago');
+      const host = snTimeAgo ? snTimeAgo.parentElement : null;
+
+      const existingIndicator = host && Array.from(host.children).find(
+        (c) => c.classList.contains('vtb-enhancer-update-indicator')
       );
-      const existingSrText = timeElement.querySelector(
-        '.vtb-enhancer-update-indicator-text'
+      const existingSrText = host && Array.from(host.children).find(
+        (c) => c.classList.contains('vtb-enhancer-update-indicator-text')
       );
 
       if (!state) {
-        if (existingIndicator || existingSrText) {
-          removeExistingUpdateIndicator(timeElement);
-        }
+        if (existingIndicator) existingIndicator.remove();
+        if (existingSrText) existingSrText.remove();
         return;
       }
 
@@ -614,50 +618,29 @@
         return;
       }
 
-      removeExistingUpdateIndicator(timeElement);
+      if (existingIndicator) existingIndicator.remove();
+      if (existingSrText) existingSrText.remove();
+
+      if (!snTimeAgo || !host) return;
 
       const indicatorSpan = document.createElement('span');
       indicatorSpan.className = 'vtb-enhancer-update-indicator';
       indicatorSpan.setAttribute('aria-hidden', 'true');
-      indicatorSpan.style.marginLeft = '4px';
       indicatorSpan.textContent = state.emoji;
 
       const srSpan = document.createElement('span');
       srSpan.className = 'sr-only vtb-enhancer-update-indicator-text';
       srSpan.textContent = state.srMessage;
 
-      const visibleSpan = Array.from(timeElement.children).find(
-        (child) =>
-          child.nodeType === Node.ELEMENT_NODE &&
-          child.tagName === 'SPAN' &&
-          !child.classList.contains('sr-only') &&
-          !child.classList.contains('vtb-enhancer-update-indicator') &&
-          !child.classList.contains('vtb-enhancer-update-indicator-text')
-      );
-
-      const srOnlyReference = Array.from(timeElement.children).find(
-        (child) =>
-          child.classList &&
-          child.classList.contains('sr-only') &&
-          !child.classList.contains('vtb-enhancer-update-indicator-text')
-      );
-
-      if (visibleSpan && typeof visibleSpan.after === 'function') {
-        visibleSpan.after(indicatorSpan);
-      } else if (srOnlyReference && srOnlyReference.parentNode) {
-        srOnlyReference.parentNode.insertBefore(
-          indicatorSpan,
-          srOnlyReference
-        );
-      } else {
-        timeElement.appendChild(indicatorSpan);
-      }
-
-      if (srOnlyReference && srOnlyReference.parentNode) {
-        srOnlyReference.parentNode.insertBefore(srSpan, srOnlyReference);
-      } else {
-        indicatorSpan.after(srSpan);
-      }
+      // Render after sn-time-ago (as a sibling), not inside the <time> element.
+      // sn-time-ago carries the class sn-card-component-time, which ServiceNow
+      // hides via opacity:0 (.state-hidden) on cards whose footer is collapsed
+      // until hover. Injecting inside that element makes the indicator inherit
+      // opacity:0 and stay invisible until the first hover. Placing it as a
+      // sibling keeps it outside that opacity scope while still in the same
+      // flex column, so it's always visible regardless of hover state.
+      snTimeAgo.after(indicatorSpan);
+      indicatorSpan.after(srSpan);
     }
 
     function detachTimeObserver(timeElement) {

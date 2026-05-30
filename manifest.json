@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "ServiceNow Visual Task Board Enhancer - Work Item Age",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Displays work item age on ServiceNow Visual Task Board cards.",
   "permissions": [
     "storage"
@@ -14,7 +14,9 @@
   "content_scripts": [
     {
       "matches": [
-        "*://*.service-now.com/*vtb.do*"
+        "*://*.service-now.com/*vtb.do*",
+        "*://localhost/*vtb*",
+        "*://127.0.0.1/*vtb*"
       ],
       "js": [
         "content.js"
