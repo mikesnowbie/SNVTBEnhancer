@@ -1,11 +1,14 @@
 /*
-  ServiceNow Visual Task Board Enhancer - Work Item Age
+  ServiceNow Visual Task Board Enhancer
   Version 1.0.0
-  - Waits until the board has fully loaded all cards (using a MutationObserver with a debounce)
-    before processing any cards or displaying a status message.
-  - Processes each card to calculate and display an "Age" badge. It prefers the card’s "Actual start date", which teams can manage independently of when the record was opened, and treats "Start date" as the same starting point before finally falling back to "Opened" when no start date exists.
-  - Badge background color is determined by configurable age bands loaded from chrome.storage.sync.
-  - Continues watching the DOM for new card elements and applies the badge automatically.
+  - Work Item Age Badges: color-coded badges showing days in progress per card, using
+    Actual start date if available, falling back to Start date, then Opened date.
+  - Total Work in Progress: grand total of cards across user-designated WIP lanes,
+    displayed in the summary bar near the board title.
+  - Last Updated Freshness Indicators: fresh/stale emoji next to each card’s last-updated
+    timestamp, configurable by threshold and lane.
+  - Service Level Expectation (SLE) Target: highlights cards approaching or breaching a
+    configurable day target via badge emoji, colored border, and summary bar counts.
 */
 (function () {
   if (!window.location.href.includes('vtb.do')) return;
@@ -1120,7 +1123,7 @@
         card.setAttribute('data-task-age-enhanced', 'true');
         updatedCount++;
       } catch (err) {
-        console.error('Work Item Age Error:', err);
+        console.error('VTB Enhancer Error:', err);
       }
     }
 

@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "ServiceNow Visual Task Board Enhancer - Work Item Age",
+  "name": "ServiceNow Visual Task Board Enhancer",
   "version": "1.0.0",
-  "description": "Displays work item age on ServiceNow Visual Task Board cards.",
+  "description": "Enhances ServiceNow Visual Task Boards with work item age badges, freshness indicators, total WIP tracking, and service level expectation targets.",
   "permissions": [
     "storage"
   ],

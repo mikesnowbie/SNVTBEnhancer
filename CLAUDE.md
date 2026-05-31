@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-**ServiceNow Visual Task Board Enhancer - Work Item Age** is a browser extension (Manifest V3) that injects age badges and update-freshness indicators onto cards in ServiceNow Visual Task Boards. It is published to the Microsoft Edge Add-ons Store (compatible with Edge and Chrome).
+**ServiceNow Visual Task Board Enhancer** is a browser extension (Manifest V3) that enhances ServiceNow Visual Task Boards with work item age badges, freshness indicators, total WIP tracking, and service level expectation targets. It is published to the Microsoft Edge Add-ons Store (compatible with Edge and Chrome).
 
 - **Local repo**: `/Users/mikesnow/Library/CloudStorage/OneDrive-Personal/Dev/SNVTBEnhancerWIA`
 - **Published repo**: https://github.com/mikesnowbie/SNVTBEnhancer
