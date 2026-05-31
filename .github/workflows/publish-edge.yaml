@@ -1,48 +1,33 @@
-name: Release
+name: Publish to Microsoft Edge Add-ons
 
 on:
-  push:
-    branches: [main]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release tag to publish (e.g. v1.0.0)'
+        required: true
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  release:
+  publish:
     runs-on: ubuntu-latest
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Check manifest has no dev-only match patterns
-        run: |
-          if grep -q 'localhost\|127\.0\.0\.1' manifest.json; then
-            echo "ERROR: manifest.json contains localhost/127.0.0.1 match patterns."
-            echo "Remove dev-only entries from the matches array before releasing."
-            exit 1
-          fi
-
-      - name: Get version
-        id: version
-        run: echo "version=$(node -p "require('./manifest.json').version")" >> $GITHUB_OUTPUT
-
-      - name: Build Edge extension zip
-        run: |
-          zip snvtb-enhancer-edge-v${{ steps.version.outputs.version }}.zip \
-            content.js options.html options.js manifest.json \
-            images/icon16.png images/icon48.png images/icon128.png
-
-      - name: Create GitHub Release
+      - name: Download Edge zip from GitHub Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          VERSION="${{ steps.version.outputs.version }}"
-          gh release create "v${VERSION}" \
-            --title "v${VERSION}" \
-            --generate-notes \
-            "snvtb-enhancer-edge-v${VERSION}.zip"
+          VERSION="${{ github.event.inputs.version }}"
+          VER="${VERSION#v}"
+          ZIP="snvtb-enhancer-edge-v${VER}.zip"
+          gh release download "${VERSION}" \
+            --repo ${{ github.repository }} \
+            --pattern "${ZIP}"
+          echo "zip=${ZIP}" >> $GITHUB_ENV
+          echo "ver=${VER}" >> $GITHUB_ENV
 
       - name: Publish to Microsoft Edge Add-ons
         env:
@@ -51,12 +36,12 @@ jobs:
           EDGE_PRODUCT_ID: ${{ vars.EDGE_PRODUCT_ID }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          VERSION="${{ steps.version.outputs.version }}"
-          ZIP="snvtb-enhancer-edge-v${VERSION}.zip"
+          VERSION="${{ github.event.inputs.version }}"
+          ZIP="${{ env.zip }}"
+          VER="${{ env.ver }}"
           API="https://api.addons.microsoftedge.microsoft.com"
 
-          # Upload the package
-          echo "Uploading package to Edge Add-ons..."
+          echo "Uploading ${ZIP} to Edge Add-ons..."
           UPLOAD_RESP=$(curl -si \
             -H "Authorization: ApiKey ${EDGE_API_KEY}" \
             -H "X-ClientID: ${EDGE_CLIENT_ID}" \
@@ -75,7 +60,6 @@ jobs:
           OPERATION_ID=$(echo "$UPLOAD_RESP" | grep -i "^location:" | awk '{print $2}' | tr -d '\r' | sed 's|.*/||')
           echo "Upload accepted, operation: ${OPERATION_ID}"
 
-          # Poll until the package is validated
           echo "Waiting for package validation..."
           STATUS=""
           for i in $(seq 1 24); do
@@ -99,12 +83,10 @@ jobs:
             exit 1
           fi
 
-          # Use GitHub Release notes as certification notes for Microsoft's review
-          NOTES=$(gh release view "v${VERSION}" --json body -q .body 2>/dev/null \
-            || echo "Version ${VERSION} — see https://github.com/mikesnowbie/SNVTBEnhancer/releases/tag/v${VERSION}")
+          NOTES=$(gh release view "${VERSION}" --repo ${{ github.repository }} --json body -q .body 2>/dev/null \
+            || echo "Version ${VER} — see https://github.com/${{ github.repository }}/releases/tag/${VERSION}")
 
-          # Submit the draft for review
-          echo "Submitting v${VERSION} for Microsoft review..."
+          echo "Submitting v${VER} for Microsoft review..."
           PUBLISH_RESP=$(curl -si \
             -H "Authorization: ApiKey ${EDGE_API_KEY}" \
             -H "X-ClientID: ${EDGE_CLIENT_ID}" \
@@ -120,5 +102,5 @@ jobs:
             exit 1
           fi
 
-          echo "Successfully submitted v${VERSION} to Microsoft Edge Add-ons for review."
+          echo "Successfully submitted v${VER} to Microsoft Edge Add-ons for review."
           echo "Users will receive the update automatically after Microsoft completes their review."
