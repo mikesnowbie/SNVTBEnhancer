@@ -40,9 +40,14 @@
       chrome.storage &&
       chrome.storage.sync
     ) {
-      chrome.storage.sync.get(
-        { vtbEnhancerConfig: defaultStorage },
-        function (data) {
+      try {
+        chrome.storage.sync.get(
+          { vtbEnhancerConfig: defaultStorage },
+          function (data) {
+            if (chrome.runtime.lastError) {
+              callback(defaultStorage);
+              return;
+            }
           let cfg = data.vtbEnhancerConfig;
           if (cfg && cfg.ageBands) {
             cfg = { defaultConfig: cfg, boards: {} };
@@ -139,6 +144,9 @@
           callback(cfg);
         }
       );
+      } catch (_) {
+        callback(defaultStorage);
+      }
     } else {
       callback(defaultStorage);
     }
@@ -150,9 +158,14 @@
       chrome.storage &&
       chrome.storage.sync
     ) {
-      chrome.storage.sync.set({ vtbEnhancerConfig: cfg }, () => {
-        if (callback) callback();
-      });
+      try {
+        chrome.storage.sync.set({ vtbEnhancerConfig: cfg }, () => {
+          if (chrome.runtime.lastError) return;
+          if (callback) callback();
+        });
+      } catch (_) {
+        // Extension context invalidated (e.g. reloaded during development) — ignore.
+      }
     } else {
       localStorage.setItem('vtbEnhancerConfig', JSON.stringify(cfg));
       if (callback) callback();
