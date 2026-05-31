@@ -298,6 +298,26 @@
         margin: 0;
       }
 
+      /* WIP flow divider (Start / Finish labels between lane checkboxes) */
+      .wip-flow-divider {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 0 2px;
+        font-size: 10px;
+        font-weight: 700;
+        color: #4299e1;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+      }
+      .wip-flow-divider::before,
+      .wip-flow-divider::after {
+        content: '';
+        flex: 1;
+        height: 1px;
+        background: #bee3f8;
+      }
+
       /* Hint block shown when default selected */
       .hint-block {
         padding: 12px 16px;
@@ -363,7 +383,7 @@
   <body>
     <div class="page-header">
       <h1>ServiceNow VTB Enhancer</h1>
-      <p>Configure work item age badges, freshness indicators, and service level expectations per board.</p>
+      <p>Configure work item age badges, total work in progress tracking, last updated freshness indicators, and service level expectation targets per board.</p>
     </div>
 
     <!-- Board selector -->
@@ -373,12 +393,12 @@
       <span class="inherit-hint">Boards inherit defaults unless overridden.</span>
     </div>
 
-    <!-- ── Feature 1: Work Item Age Badge ── -->
+    <!-- ── Feature 1: Work Item Age Badges ── -->
     <div class="feature-card">
       <div class="feature-header">
         <div class="feature-header-text">
-          <h2>Work Item Age Badge</h2>
-          <p>Shows a color-coded age badge on every card based on the earliest of Actual start date, Start date, or Opened.</p>
+          <h2>Work Item Age Badges</h2>
+          <p>Adds a color-coded badge to every card showing how many days it has been in progress. Uses Actual start date if available, falling back to Start date, then Opened date.</p>
         </div>
         <label class="switch">
           <input type="checkbox" id="ageBadgeToggle" />
@@ -406,6 +426,23 @@
           <button id="addRowBtn" class="btn btn-sm btn-secondary">+ Add band</button>
         </div>
 
+        <hr class="section-divider" />
+
+        <div class="field-group">
+          <label>Badge prefix</label>
+          <div class="toggle-row">
+            <label class="switch">
+              <input type="checkbox" id="ageBadgePrefixToggle" />
+              <span class="slider"></span>
+            </label>
+            <span>Show a custom prefix before the age number</span>
+          </div>
+          <div id="ageBadgePrefixSettings" style="display:none; margin-top:12px;">
+            <input type="text" id="ageBadgePrefixInput" maxlength="20" placeholder='e.g. Age:  or  WIA:' />
+            <p class="field-help">Examples: <strong>Age: 10d</strong> or <strong>WIA: 10d</strong>.</p>
+          </div>
+        </div>
+
         <div class="preview-card" id="agePreview">
           <div class="preview-badge" id="previewBadge">10d</div>
           <div class="preview-text">
@@ -415,12 +452,40 @@
       </div>
     </div>
 
-    <!-- ── Feature 2: Last Updated Freshness Indicator ── -->
+    <!-- ── Feature 2: Total Work in Progress ── -->
     <div class="feature-card">
       <div class="feature-header">
         <div class="feature-header-text">
-          <h2>Last Updated Freshness Indicator</h2>
-          <p>Adds a fresh or stale emoji next to the "last updated" timestamp at the bottom right of each card.</p>
+          <h2>Total Work in Progress</h2>
+          <p>Sums the card counts across your designated WIP lanes and displays the grand total in the summary bar near the board title.</p>
+        </div>
+        <label class="switch">
+          <input type="checkbox" id="totalWipToggle" />
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <div id="totalWipSection" class="feature-body">
+        <div class="hint-block" id="totalWipDefaultHint" style="display:none;">
+          Total WIP is configured per board — select a specific board from the Board dropdown at the top of this page.
+        </div>
+
+        <div id="totalWipFields">
+          <div class="field-group">
+            <label>Work in progress lanes</label>
+            <p class="field-help">Select the lanes that represent active work in progress on this board.</p>
+            <div id="totalWipLanesList" style="margin-top: 8px;"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Feature 3: Last Updated Freshness Indicators ── -->
+    <div class="feature-card">
+      <div class="feature-header">
+        <div class="feature-header-text">
+          <h2>Last Updated Freshness Indicators</h2>
+          <p>Adds a fresh or stale emoji next to each card's last-updated timestamp, making it easy to spot cards that haven't been touched recently.</p>
         </div>
         <label class="switch">
           <input type="checkbox" id="updateIndicatorToggle" />
@@ -455,11 +520,18 @@
         <hr class="section-divider" />
 
         <div class="field-group" id="wipLanesSection" style="display:none;">
-          <label>WIP lanes</label>
-          <p class="field-help">
-            Check the lanes where the freshness indicator should appear. Leave all unchecked to show it on every card regardless of lane.
-          </p>
-          <div id="wipLanesList" style="margin-top: 8px;"></div>
+          <label>Lane restriction</label>
+          <div class="toggle-row">
+            <label class="switch">
+              <input type="checkbox" id="wipLanesToggle" />
+              <span class="slider"></span>
+            </label>
+            <span>Restrict freshness indicators to specific lanes only</span>
+          </div>
+          <p class="field-help" style="margin-top: 8px;">When off, every card on this board shows a freshness indicator regardless of lane. Turn on to limit indicators to specific lanes — useful when you only care about freshness in active work lanes (e.g. "In Flight") and want to ignore backlog or done lanes.</p>
+          <div id="wipLanesCheckboxes" style="display:none; margin-top: 12px;">
+            <div id="wipLanesList"></div>
+          </div>
         </div>
 
         <div class="preview-card" id="updatePreview">
@@ -477,12 +549,12 @@
       </div>
     </div>
 
-    <!-- ── Feature 3: Service Level Expectations ── -->
+    <!-- ── Feature 4: Service Level Expectation (SLE) Target ── -->
     <div class="feature-card">
       <div class="feature-header">
         <div class="feature-header-text">
-          <h2>Service Level Expectations (SLE)</h2>
-          <p>Set a day target per board. Age badges show an emoji and border when cards approach or breach the target.</p>
+          <h2>Service Level Expectation (SLE) Target</h2>
+          <p>Sets a maximum age target in days, per board. Cards approaching or breaching the target are highlighted on their age badge and counted in the summary bar near the board title.</p>
         </div>
         <label class="switch">
           <input type="checkbox" id="sleToggle" />
@@ -492,37 +564,20 @@
 
       <div id="sleSection" class="feature-body">
         <div class="hint-block" id="sleDefaultHint" style="display:none;">
-          SLE is configured per board — select a specific board from the dropdown above.
+          SLE is configured per board — select a specific board from the Board dropdown at the top of this page.
         </div>
 
         <div id="sleFields">
           <div class="field-group">
-            <label for="sleDaysInput">SLE target (days, 0 = disabled)</label>
+            <label for="sleDaysInput">SLE target (days)</label>
             <input type="number" id="sleDaysInput" min="0" step="1" value="0" />
-            <p class="field-help">Cards older than this many days are considered over SLE.</p>
+            <p class="field-help">Cards older than this many days are considered over the SLE target.</p>
           </div>
 
           <div class="field-group">
             <label for="sleApproachingInput">Approaching warning (days before target)</label>
             <input type="number" id="sleApproachingInput" min="0" step="1" value="3" />
             <p class="field-help">Show an approaching warning when a card is within this many days of the SLE target.</p>
-          </div>
-
-          <hr class="section-divider" />
-
-          <div class="field-group">
-            <label>SLE status emoji</label>
-            <div class="emoji-row">
-              <div>
-                <label for="sleApproachingEmojiInput">Approaching target</label>
-                <input type="text" id="sleApproachingEmojiInput" maxlength="8" placeholder="⚠️" />
-              </div>
-              <div>
-                <label for="sleBreachedEmojiInput">Breached target</label>
-                <input type="text" id="sleBreachedEmojiInput" maxlength="8" placeholder="🔴" />
-              </div>
-            </div>
-            <p class="field-help">These emojis are prepended to the age badge when escalation is enabled. Leave blank to use defaults (⚠️ / 🔴).</p>
           </div>
 
           <hr class="section-divider" />
@@ -535,18 +590,44 @@
               </label>
               <span>Show summary bar near board title</span>
             </div>
-            <p class="field-help">Displays over/approaching counts inline next to the board name when the VTB is open.</p>
+            <p class="field-help">Displays over/approaching counts inline next to the board name.</p>
+          </div>
+
+          <hr class="section-divider" />
+
+          <div class="field-group">
+            <div class="toggle-row">
+              <label class="switch">
+                <input type="checkbox" id="sleEmojiToggle" checked />
+                <span class="slider"></span>
+              </label>
+              <span>Show SLE status emojis on age badge</span>
+            </div>
+            <p class="field-help">Prepends an emoji to the age badge as cards approach or breach the SLE target.</p>
+            <div id="sleEmojiSettings" style="margin-top:12px;">
+              <div class="emoji-row">
+                <div>
+                  <label for="sleApproachingEmojiInput">Approaching target</label>
+                  <input type="text" id="sleApproachingEmojiInput" maxlength="8" placeholder="⚠️" />
+                </div>
+                <div>
+                  <label for="sleBreachedEmojiInput">Breached target</label>
+                  <input type="text" id="sleBreachedEmojiInput" maxlength="8" placeholder="🔴" />
+                </div>
+              </div>
+              <p class="field-help">Leave blank to use defaults (⚠️ / 🔴).</p>
+            </div>
           </div>
 
           <div class="field-group">
             <div class="toggle-row">
               <label class="switch">
-                <input type="checkbox" id="sleEscalationToggle" checked />
+                <input type="checkbox" id="sleBorderToggle" checked />
                 <span class="slider"></span>
               </label>
-              <span>Escalate age badge appearance near SLE</span>
+              <span>Show colored border on age badge near SLE</span>
             </div>
-            <p class="field-help">Adds an emoji prefix and colored border to the age badge as cards approach (dashed orange) or breach (solid red) the target.</p>
+            <p class="field-help">Adds a dashed orange border as cards approach the target and a solid red border when breached.</p>
           </div>
         </div>
       </div>

@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-**ServiceNow Visual Task Board Enhancer - Work Item Age** is a browser extension (Manifest V3) that injects age badges and update-freshness indicators onto cards in ServiceNow Visual Task Boards. It is published to the Microsoft Edge Add-ons Store and has a parallel Safari variant.
+**ServiceNow Visual Task Board Enhancer - Work Item Age** is a browser extension (Manifest V3) that injects age badges and update-freshness indicators onto cards in ServiceNow Visual Task Boards. It is published to the Microsoft Edge Add-ons Store (compatible with Edge and Chrome).
 
 - **Local repo**: `/Users/mikesnow/Library/CloudStorage/OneDrive-Personal/Dev/SNVTBEnhancerWIA`
 - **Published repo**: https://github.com/mikesnowbie/SNVTBEnhancer
@@ -23,30 +23,23 @@
 | `content.js` | Content script — injected into every matching ServiceNow VTB page |
 | `options.html` / `options.js` | Extension options UI (age bands, freshness threshold, emojis) |
 | `bump-version.js` | Node script that increments the patch version in `manifest.json`; runs in CI only |
-| `safari-extension/` | Safari variant — mirrors `content.js`, `options.html`, `options.js`, `images/`, `manifest.json` |
-
-## Safari Extension Sync Policy
-
-The Safari extension (`safari-extension/`) must stay in sync with the Edge extension. Any change to `content.js`, `options.html`, `options.js`, or `images/` must be reflected in `safari-extension/` as part of the **same PR**. If a Safari-specific divergence is necessary, document it clearly in the PR description.
-
-Goal: keep the two as close to identical as possible so publishing both versions is straightforward.
 
 ## Git & PR Workflow
 
 - **Never push to `main`.** The `main` branch is managed manually by Mike on the GitHub website.
 - **Never push to the remote** unless Mike explicitly asks.
-- All work happens locally on a descriptive branch (no mandatory prefix — just make the name clear, e.g. `add-tooltip-to-age-badge`, `fix-duplicate-badge-render`, `sync-safari-options-ui`).
+- All work happens locally on a descriptive branch (no mandatory prefix — just make the name clear, e.g. `add-tooltip-to-age-badge`, `fix-duplicate-badge-render`).
 - **Always bump the version as part of the branch** before committing (see Version Management below), so the exact version ships in the PR diff.
 - When ready to publish, push the branch and create a PR with `gh pr create --base main`. The PR title should be concise and imperative. Include a brief summary and test notes in the body.
-- On merge to `main`, CI automatically builds two zips and creates a versioned GitHub Release. No manual release steps needed.
+- On merge to `main`, CI automatically builds the Edge zip and creates a versioned GitHub Release. No manual release steps needed.
 
 ## Version Management
 
-- Version is stored in `manifest.json` **and** `safari-extension/manifest.json` — both must always match.
+- Version is stored in `manifest.json`.
 - Use `bump-version.js` locally when creating a branch, before making any other changes:
   - **Bug fix / minor tweak** (patch bump): `node bump-version.js`
   - **New feature** (minor bump): `node bump-version.js --minor`
-  - **Major release**: edit both manifests manually.
+  - **Major release**: edit `manifest.json` manually.
 - Commit the version bump as the first commit on the branch so it's clearly visible in the PR diff.
 - CI reads the version from `manifest.json` to name the release tag and zip files — if two PRs carry the same version the CI release step will fail, which is the intended signal to investigate.
 

@@ -14,6 +14,14 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Check manifest has no dev-only match patterns
+        run: |
+          if grep -q 'localhost\|127\.0\.0\.1' manifest.json; then
+            echo "ERROR: manifest.json contains localhost/127.0.0.1 match patterns."
+            echo "Remove dev-only entries from the matches array before releasing."
+            exit 1
+          fi
+
       - name: Get version
         id: version
         run: echo "version=$(node -p "require('./manifest.json').version")" >> $GITHUB_OUTPUT
@@ -21,13 +29,6 @@ jobs:
       - name: Build Edge extension zip
         run: |
           zip snvtb-enhancer-edge-v${{ steps.version.outputs.version }}.zip \
-            content.js options.html options.js manifest.json \
-            images/icon16.png images/icon48.png images/icon128.png
-
-      - name: Build Safari extension zip
-        run: |
-          cd safari-extension
-          zip ../snvtb-enhancer-safari-v${{ steps.version.outputs.version }}.zip \
             content.js options.html options.js manifest.json \
             images/icon16.png images/icon48.png images/icon128.png
 
@@ -39,8 +40,7 @@ jobs:
           gh release create "v${VERSION}" \
             --title "v${VERSION}" \
             --generate-notes \
-            "snvtb-enhancer-edge-v${VERSION}.zip" \
-            "snvtb-enhancer-safari-v${VERSION}.zip"
+            "snvtb-enhancer-edge-v${VERSION}.zip"
 
       - name: Publish to Microsoft Edge Add-ons
         env:

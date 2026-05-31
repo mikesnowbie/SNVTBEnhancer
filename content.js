@@ -86,6 +86,12 @@
           if (typeof cfg.defaultConfig.enableUpdateIndicator !== 'boolean') {
             cfg.defaultConfig.enableUpdateIndicator = true;
           }
+          if (typeof cfg.defaultConfig.enableAgeBadgePrefix !== 'boolean') {
+            cfg.defaultConfig.enableAgeBadgePrefix = false;
+          }
+          if (typeof cfg.defaultConfig.ageBadgePrefix !== 'string') {
+            cfg.defaultConfig.ageBadgePrefix = '';
+          }
 
           if (!cfg.boards || typeof cfg.boards !== 'object') {
             cfg.boards = {};
@@ -106,6 +112,13 @@
               boardCfg.enableUpdateIndicator = cfg.defaultConfig.enableUpdateIndicator;
             }
 
+            if (typeof boardCfg.enableAgeBadgePrefix !== 'boolean') {
+              boardCfg.enableAgeBadgePrefix = cfg.defaultConfig.enableAgeBadgePrefix;
+            }
+            if (typeof boardCfg.ageBadgePrefix !== 'string') {
+              boardCfg.ageBadgePrefix = cfg.defaultConfig.ageBadgePrefix;
+            }
+
             if (!boardCfg.updateIndicator || typeof boardCfg.updateIndicator !== 'object') {
               boardCfg.updateIndicator = { ...cfg.defaultConfig.updateIndicator };
             } else {
@@ -123,6 +136,15 @@
               };
             }
 
+            if (typeof boardCfg.enableWipLanes !== 'boolean') {
+              boardCfg.enableWipLanes = Array.isArray(boardCfg.wipLanes) && boardCfg.wipLanes.length > 0;
+            }
+            if (!boardCfg.totalWip || typeof boardCfg.totalWip !== 'object') {
+              boardCfg.totalWip = { enabled: false, lanes: [] };
+            } else {
+              if (typeof boardCfg.totalWip.enabled !== 'boolean') boardCfg.totalWip.enabled = false;
+              if (!Array.isArray(boardCfg.totalWip.lanes)) boardCfg.totalWip.lanes = [];
+            }
             if (!Array.isArray(boardCfg.wipLanes)) {
               boardCfg.wipLanes = [];
             }
@@ -130,13 +152,15 @@
               boardCfg.lanes = [];
             }
             if (!boardCfg.sle || typeof boardCfg.sle !== 'object') {
-              boardCfg.sle = { enabled: true, days: 0, approachingDays: 3, showSummary: true, showBadgeEscalation: true, approachingEmoji: '⚠️', breachedEmoji: '🔴' };
+              boardCfg.sle = { enabled: true, days: 0, approachingDays: 3, showSummary: true, showBadgeEmojis: true, showBadgeBorder: true, approachingEmoji: '⚠️', breachedEmoji: '🔴' };
             } else {
               if (typeof boardCfg.sle.enabled !== 'boolean') boardCfg.sle.enabled = true;
               if (typeof boardCfg.sle.days !== 'number' || boardCfg.sle.days < 0) boardCfg.sle.days = 0;
               if (typeof boardCfg.sle.approachingDays !== 'number' || boardCfg.sle.approachingDays < 0) boardCfg.sle.approachingDays = 3;
               if (typeof boardCfg.sle.showSummary !== 'boolean') boardCfg.sle.showSummary = true;
-              if (typeof boardCfg.sle.showBadgeEscalation !== 'boolean') boardCfg.sle.showBadgeEscalation = true;
+              const legacyEscalation = typeof boardCfg.sle.showBadgeEscalation === 'boolean' ? boardCfg.sle.showBadgeEscalation : true;
+              if (typeof boardCfg.sle.showBadgeEmojis !== 'boolean') boardCfg.sle.showBadgeEmojis = legacyEscalation;
+              if (typeof boardCfg.sle.showBadgeBorder !== 'boolean') boardCfg.sle.showBadgeBorder = legacyEscalation;
               if (!boardCfg.sle.approachingEmoji || typeof boardCfg.sle.approachingEmoji !== 'string') boardCfg.sle.approachingEmoji = '⚠️';
               if (!boardCfg.sle.breachedEmoji || typeof boardCfg.sle.breachedEmoji !== 'string') boardCfg.sle.breachedEmoji = '🔴';
             }
@@ -367,11 +391,24 @@
       updateIndicator: normalizedIndicator,
       enableAgeBadge,
       enableUpdateIndicator,
-      // wipLanes: empty array means show on all cards; non-empty restricts to named lanes only.
-      wipLanes: boardConfig && Array.isArray(boardConfig.wipLanes) ? boardConfig.wipLanes : [],
+      enableAgeBadgePrefix:
+        boardConfig && typeof boardConfig.enableAgeBadgePrefix === 'boolean'
+          ? boardConfig.enableAgeBadgePrefix
+          : fullConfig.defaultConfig.enableAgeBadgePrefix === true,
+      ageBadgePrefix:
+        boardConfig && typeof boardConfig.ageBadgePrefix === 'string'
+          ? boardConfig.ageBadgePrefix
+          : fullConfig.defaultConfig.ageBadgePrefix || '',
+      // wipLanes: only applied when enableWipLanes is true; otherwise empty array = show on all cards.
+      wipLanes: (boardConfig && boardConfig.enableWipLanes === true && Array.isArray(boardConfig.wipLanes))
+        ? boardConfig.wipLanes
+        : [],
       sle: boardConfig && boardConfig.sle
         ? boardConfig.sle
-        : { enabled: true, days: 0, approachingDays: 3, showSummary: true, showBadgeEscalation: true, approachingEmoji: '⚠️', breachedEmoji: '🔴' },
+        : { enabled: true, days: 0, approachingDays: 3, showSummary: true, showBadgeEmojis: true, showBadgeBorder: true, approachingEmoji: '⚠️', breachedEmoji: '🔴' },
+      totalWip: boardConfig && boardConfig.totalWip
+        ? boardConfig.totalWip
+        : { enabled: false, lanes: [] },
     };
     // --- Utility Functions ---
     function showDebugMessage(msg) {
@@ -607,12 +644,28 @@
     function applyUpdateIndicator(timeElement) {
       const state = computeUpdateIndicatorState(timeElement);
       const snTimeAgo = timeElement.closest('sn-time-ago');
-      const host = snTimeAgo ? snTimeAgo.parentElement : null;
+      if (!snTimeAgo) return;
 
-      const existingIndicator = host && Array.from(host.children).find(
+      // Wrap sn-time-ago in an inline-flex span so the indicator sits on the
+      // same line as the "Xd ago" text. The indicator must remain a sibling of
+      // sn-time-ago (not a descendant) to stay outside the opacity:0 scope that
+      // ServiceNow applies via .state-hidden — CSS opacity cascades to children
+      // but not to siblings, so placing both inside a wrapper span preserves the
+      // visibility fix while achieving the inline layout.
+      if (!snTimeAgo.parentElement.classList.contains('vtb-enhancer-time-wrapper')) {
+        const wrapper = document.createElement('span');
+        wrapper.className = 'vtb-enhancer-time-wrapper';
+        wrapper.style.cssText = 'display:inline-flex; align-items:center; gap:4px;';
+        snTimeAgo.parentNode.insertBefore(wrapper, snTimeAgo);
+        wrapper.appendChild(snTimeAgo);
+      }
+
+      const host = snTimeAgo.parentElement; // the wrapper
+
+      const existingIndicator = Array.from(host.children).find(
         (c) => c.classList.contains('vtb-enhancer-update-indicator')
       );
-      const existingSrText = host && Array.from(host.children).find(
+      const existingSrText = Array.from(host.children).find(
         (c) => c.classList.contains('vtb-enhancer-update-indicator-text')
       );
 
@@ -634,8 +687,6 @@
       if (existingIndicator) existingIndicator.remove();
       if (existingSrText) existingSrText.remove();
 
-      if (!snTimeAgo || !host) return;
-
       const indicatorSpan = document.createElement('span');
       indicatorSpan.className = 'vtb-enhancer-update-indicator';
       indicatorSpan.setAttribute('aria-hidden', 'true');
@@ -645,13 +696,6 @@
       srSpan.className = 'sr-only vtb-enhancer-update-indicator-text';
       srSpan.textContent = state.srMessage;
 
-      // Render after sn-time-ago (as a sibling), not inside the <time> element.
-      // sn-time-ago carries the class sn-card-component-time, which ServiceNow
-      // hides via opacity:0 (.state-hidden) on cards whose footer is collapsed
-      // until hover. Injecting inside that element makes the indicator inherit
-      // opacity:0 and stay invisible until the first hover. Placing it as a
-      // sibling keeps it outside that opacity scope while still in the same
-      // flex column, so it's always visible regardless of hover state.
       snTimeAgo.after(indicatorSpan);
       indicatorSpan.after(srSpan);
     }
@@ -865,38 +909,101 @@
 
     // Applies an SLE escalation outline and emoji prefix to a badge based on age vs SLE target.
     function applySleEscalationToBadge(badge, age, sle) {
-      if (!sle || sle.enabled === false || sle.days <= 0 || !sle.showBadgeEscalation) return;
+      if (!sle || sle.enabled === false || sle.days <= 0) return;
+      const showEmojis = sle.showBadgeEmojis !== false;
+      const showBorder = sle.showBadgeBorder !== false;
+      if (!showEmojis && !showBorder) return;
       const approachingEmoji = sle.approachingEmoji || '⚠️';
       const breachedEmoji = sle.breachedEmoji || '🔴';
       if (age >= sle.days) {
-        badge.textContent = `${breachedEmoji} ${badge.textContent}`;
-        badge.style.outline = '2px solid #c0392b';
-        badge.style.outlineOffset = '2px';
+        if (showEmojis) badge.textContent = `${breachedEmoji} ${badge.textContent}`;
+        if (showBorder) { badge.style.outline = '2px solid #c0392b'; badge.style.outlineOffset = '2px'; }
       } else if (sle.approachingDays > 0 && age >= sle.days - sle.approachingDays) {
-        badge.textContent = `${approachingEmoji} ${badge.textContent}`;
-        badge.style.outline = '2px dashed #e67e22';
-        badge.style.outlineOffset = '2px';
+        if (showEmojis) badge.textContent = `${approachingEmoji} ${badge.textContent}`;
+        if (showBorder) { badge.style.outline = '2px dashed #e67e22'; badge.style.outlineOffset = '2px'; }
       }
     }
 
-    // Reads ages stored on cards and updates (or removes) the SLE summary bar near the board title.
-    function renderSleSummaryBar() {
+    // Reads ServiceNow's own per-lane card counts (the numbers displayed at the top of each
+    // lane) for the designated WIP lanes and sums them. This is more reliable than counting
+    // card DOM elements ourselves because ServiceNow tracks all cards in each lane — including
+    // those hidden off-screen by the virtual scroll — and keeps this count current.
+    function countCardsInWipLanes(wipLaneNames) {
+      let total = 0;
+
+      for (const sel of LANE_TITLE_SELECTORS) {
+        let anyFound = false;
+        try {
+          document.querySelectorAll(sel).forEach((titleEl) => {
+            const name = getLaneTitleText(titleEl);
+            if (!name || !wipLaneNames.includes(name)) return;
+
+            // Walk up from the lane title to find the lane header container that also
+            // holds the count element as a sibling. Stop before climbing above the lane
+            // boundary (where multiple lane titles would appear).
+            let ancestor = titleEl.parentElement;
+            while (ancestor && ancestor !== document.body) {
+              const countEl = ancestor.querySelector(
+                '.vtb-lane-header-count, [class*="lane-header-count"], [class*="lane-count"]'
+              );
+              if (countEl) {
+                // Count may be displayed as "8" or "8 / 10" (with WIP limit) — take first number.
+                const match = countEl.textContent.trim().match(/(\d+)/);
+                if (match) {
+                  total += parseInt(match[1], 10);
+                  anyFound = true;
+                }
+                return; // move on to next title element
+              }
+              if (ancestor.querySelectorAll(sel).length > 1) break;
+              ancestor = ancestor.parentElement;
+            }
+          });
+        } catch (_) {}
+        if (anyFound) break;
+      }
+      return total;
+    }
+
+    // Renders (or removes) the summary bar near the board title for SLE and/or Total WIP.
+    function renderSummaryBar() {
       const existing = document.getElementById('vtb-enhancer-sle-bar');
       const sle = config.sle;
-      if (!sle || sle.enabled === false || sle.days <= 0 || !sle.showSummary) {
+      const totalWip = config.totalWip;
+
+      const sleActive = sle && sle.enabled !== false && sle.days > 0 && sle.showSummary !== false;
+      const wipActive = totalWip && totalWip.enabled === true && Array.isArray(totalWip.lanes) && totalWip.lanes.length > 0;
+
+      if (!sleActive && !wipActive) {
         if (existing) existing.remove();
         return;
       }
 
       let over = 0, approaching = 0;
-      document.querySelectorAll('.vtb-card-component-wrapper').forEach((card) => {
-        const ageStr = card.getAttribute('data-task-age-days');
-        if (ageStr === null) return;
-        const age = parseInt(ageStr, 10);
-        if (isNaN(age) || age < 0) return;
-        if (age >= sle.days) over++;
-        else if (sle.approachingDays > 0 && age >= sle.days - sle.approachingDays) approaching++;
-      });
+      if (sleActive) {
+        document.querySelectorAll('.vtb-card-component-wrapper').forEach((card) => {
+          const ageStr = card.getAttribute('data-task-age-days');
+          if (ageStr !== null) {
+            const age = parseInt(ageStr, 10);
+            if (!isNaN(age) && age >= 0) {
+              if (age >= sle.days) over++;
+              else if (sle.approachingDays > 0 && age >= sle.days - sle.approachingDays) approaching++;
+            }
+          }
+        });
+      }
+      const wipCount = wipActive ? countCardsInWipLanes(totalWip.lanes) : 0;
+
+      const parts = [];
+      if (wipActive) parts.push(`<span><strong>Total WIP: ${wipCount}</strong></span>`);
+      if (sleActive) {
+        parts.push(`<span>SLE: ${sle.days}d</span>`);
+        parts.push(`<span style="color:#c0392b;">▲ ${over} over</span>`);
+        parts.push(`<span style="color:#e67e22;">⚠ ${approaching} approaching</span>`);
+      }
+
+      const bgColor = sleActive && over > 0 ? '#fdecea' : sleActive ? '#fff8e1' : '#ebf8ff';
+      const borderColor = sleActive && over > 0 ? '#c0392b' : sleActive ? '#f39c12' : '#bee3f8';
 
       const bar = existing || document.createElement('div');
       bar.id = 'vtb-enhancer-sle-bar';
@@ -905,8 +1012,8 @@
         alignItems: 'center',
         gap: '10px',
         padding: '3px 10px',
-        backgroundColor: over > 0 ? '#fdecea' : '#fff8e1',
-        border: `1px solid ${over > 0 ? '#c0392b' : '#f39c12'}`,
+        backgroundColor: bgColor,
+        border: `1px solid ${borderColor}`,
         borderRadius: '4px',
         fontSize: '12px',
         fontWeight: '500',
@@ -914,10 +1021,7 @@
         verticalAlign: 'middle',
         lineHeight: '1.4',
       });
-      bar.innerHTML =
-        `<span>SLE: ${sle.days}d</span>` +
-        `<span style="color:#c0392b;">▲ ${over} over</span>` +
-        `<span style="color:#e67e22;">⚠ ${approaching} approaching</span>`;
+      bar.innerHTML = parts.join('');
 
       if (!existing) {
         const label = document.querySelector('label.sn-navhub-title');
@@ -988,7 +1092,7 @@
         if (!startDate) return;
         const age = calculateDaysDiff(startDate);
         if (age === null) return;
-        card.setAttribute('data-task-age-days', age); // Always set for SLE tracking (renderSleSummaryBar skips negative ages)
+        card.setAttribute('data-task-age-days', age); // Always set for SLE/WIP tracking
         if (!config.enableAgeBadge) return;
         if (age < 0) {
           // Work hasn't started yet — show how many days until the start date.
@@ -1000,7 +1104,10 @@
           return;
         }
         const badgeColor = getBadgeColor(age);
-        const badge = createBadge(`${age}d`, badgeColor);
+        const prefixText = config.enableAgeBadgePrefix && config.ageBadgePrefix
+          ? config.ageBadgePrefix.trimEnd() + ' '
+          : '';
+        const badge = createBadge(`${prefixText}${age}d`, badgeColor);
         applySleEscalationToBadge(badge, age, config.sle);
         if (getComputedStyle(card).position === 'static') {
           card.style.position = 'relative';
@@ -1025,9 +1132,9 @@
     function observeCards() {
       if (!config.enableAgeBadge && !config.enableUpdateIndicator) return;
       let sleBarTimer = null;
-      const debouncedSleUpdate = () => {
+      const debouncedSummaryUpdate = () => {
         if (sleBarTimer) clearTimeout(sleBarTimer);
-        sleBarTimer = setTimeout(renderSleSummaryBar, 500);
+        sleBarTimer = setTimeout(renderSummaryBar, 500);
       };
       const observer = new MutationObserver((mutations) => {
         let cardChanged = false;
@@ -1056,7 +1163,10 @@
             }
           });
         });
-        if (cardChanged && config.sle && config.sle.enabled !== false && config.sle.days > 0) debouncedSleUpdate();
+        if (cardChanged && (
+          (config.sle && config.sle.enabled !== false && config.sle.days > 0) ||
+          (config.totalWip && config.totalWip.enabled === true && config.totalWip.lanes && config.totalWip.lanes.length > 0)
+        )) debouncedSummaryUpdate();
       });
       observer.observe(document.body, { childList: true, subtree: true });
 
@@ -1137,7 +1247,7 @@
           return;
         }
         processExistingCards();
-        renderSleSummaryBar();
+        renderSummaryBar();
         const ageMessage = config.enableAgeBadge
           ? `Updated ${updatedCount} cards with Work Item Age`
           : 'Work Item Age badge disabled';
