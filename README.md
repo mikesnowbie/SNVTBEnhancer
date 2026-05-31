@@ -1,101 +1,189 @@
-# ServiceNow Visual Task Board Enhancer - Work Item Age
+# ServiceNow Visual Task Board Enhancer
 
-## Overview
+A Microsoft Edge extension (also compatible with Chrome) that adds four flow-metric features to ServiceNow Visual Task Boards: work item age badges, total work in progress tracking, last-updated freshness indicators, and service level expectation target monitoring.
 
-The **ServiceNow Visual Task Board Enhancer - Work Item Age** is a Microsoft Edge Extension designed to enhance Visual Task Boards (VTBs) in ServiceNow by displaying the Work Item Age in days. The age is derived from the card's **Actual Start Date** whenever available. That field is preferred because teams can manage it independently of when the record was created. If no Actual Start Date is present, the extension falls back to the card's **Start date** (which represents the same starting point for work) and then the **Opened** date so cards still show an age. This extension visually highlights task age with color-coded badges to improve task tracking and prioritization.
+![ServiceNow VTB with all four features active](images/screenshot-board-overview.png)
 
-![What the badges look like in a ServiceNow Visual Task Board](images/screenshot1.png)
+---
 
 ## Features
 
-- Automatically identifies task cards on ServiceNow Visual Task Boards.
-- Prefers the **Actual Start Date** field, which teams can manage independently of when the record was opened, and uses **Start date** (treated the same as Actual Start Date) or, if necessary, **Opened** as backups when no start date is maintained.
-- Ignores blank values on the card so the extension only counts from dates that are truly populated.
-- Calculates and displays the Work Item Age in a badge at the bottom of each card.
-- Uses customizable color-coding to indicate urgency. Here are the defaults:
-  - **< 7 days**: Light yellow (`#f9e79f`)
-  - **7–30 days**: Moderate orange (`#f0ad4e`)
-  - **30–90 days**: Strong orange (`#e67e22`)
-  - **90+ days**: Red (`#d9534f`)
-- Ensures contrast for readability.
-- Displays "Done" with a green badge whenever the card's **State** reads as a completion status (for example *Resolved*, *Closed*, *Canceled/Cancelled*, *Complete*, *Completed*, *Discarded*, *Done*, *Fulfilled*, *Finished*, *Finalized*, or *Accomplished*).
-- Runs efficiently, avoiding duplicate processing of the same cards.
-- Supports board-specific color bands while providing a global default configuration.
-- Highlights card freshness with a green checkmark or red X based on whether the last update happened within a configurable, per-board threshold (6 days by default).
-- Lets each board pick the exact emoji shown for fresh and stale updates while falling back to the default ✅ / ❌ pair.
+- [Work Item Age Badges](#1-work-item-age-badges)
+- [Total Work in Progress](#2-total-work-in-progress)
+- [Last Updated Freshness Indicators](#3-last-updated-freshness-indicators)
+- [Service Level Expectation (SLE) Target](#4-service-level-expectation-sle-target)
 
-## How Work Item Age is Determined
+All four features are independently toggleable, configured per board through the extension options page, and fall back to global defaults when no board-specific override is set.
 
-The extension looks for three possible date labels on each card (in a case-insensitive way) and ignores blank values:
+---
 
-1. **Actual Start Date** – preferred and used whenever present because it records when work truly began.
-2. **Start date** – treated the same as Actual Start Date and used if the Actual Start Date field is missing or empty.
-3. **Opened** – used only when neither start date is available and represents when the record was created, which may differ from the actual start of work.
+### 1. Work Item Age Badges
 
-The badge's counter starts on the first populated value found in that order, ensuring the age reflects the best available information.
+Adds a color-coded badge to the bottom of every card showing how many days the work item has been in progress.
+
+![Close-up of age badges in different color bands](images/screenshot-age-badges.png)
+
+**How age is determined**
+
+The extension looks for date fields on each card in priority order:
+
+1. **Actual Start Date** — preferred. Records when work truly began. Teams can set this independently of when the record was created.
+2. **Start Date** — used if Actual Start Date is absent. Treated as the same starting point.
+3. **Opened** — fallback. Represents when the record was created, which may predate actual work starting.
+
+**Default color bands**
+
+| Age | Color |
+|---|---|
+| Under 7 days | Light yellow |
+| 7–30 days | Moderate orange |
+| 31–90 days | Strong orange |
+| Over 90 days | Red |
+
+Cards in a completion state (Resolved, Closed, Done, Fulfilled, etc.) always show a green **Done** badge regardless of age.
+
+Cards with a future start date show a **Starts in Xd** badge in grey.
+
+**Configuration options**
+
+- Fully customizable age bands (day thresholds and colors)
+- Optional custom prefix before the day count (e.g. `Age: 10d` or `WIA: 10d`)
+
+---
+
+### 2. Total Work in Progress
+
+Displays the grand total number of cards across your designated WIP lanes in a summary bar near the board title.
+
+![Summary bar showing Total WIP and SLE counts](images/screenshot-summary-bar.png)
+
+ServiceNow already shows a per-lane card count at the top of each lane column. What it does not show is a combined total across the lanes that represent active work in progress — that is a user-defined concept depending on how your board is organized. This feature lets you designate which lanes are WIP lanes, then surfaces the total as a Kanban flow metric.
+
+**Configuration options**
+
+- Enabled per board; not applicable to the Default (All Boards) configuration
+- Lane selection with dynamic **Start** / **Finish** markers that group consecutive WIP lanes visually in the options page
+
+---
+
+### 3. Last Updated Freshness Indicators
+
+Adds a fresh or stale emoji next to the last-updated timestamp on each card, making it easy to spot cards that haven't been touched recently.
+
+![Cards showing fresh and stale indicators next to timestamps](images/screenshot-freshness.png)
+
+**Configuration options**
+
+- **Freshness threshold** (days): cards updated within this window show the fresh emoji; older cards show the stale emoji. Default: 6 days.
+- **Custom emoji**: choose any emoji for the fresh and stale states (defaults: ✅ / ❌)
+- **Lane restriction**: optionally limit freshness indicators to specific lanes only — useful when you only care about freshness in active work lanes and want to ignore backlog or done lanes
+
+---
+
+### 4. Service Level Expectation (SLE) Target
+
+Sets a maximum age target in days per board. Cards approaching or breaching the target are highlighted on their age badge and counted in the summary bar near the board title.
+
+![Age badge with SLE escalation styling and summary bar](images/screenshot-sle-escalation.png)
+
+**Configuration options**
+
+- **SLE target (days)**: cards older than this are considered over SLE. Set to 0 to disable.
+- **Approaching warning (days before target)**: how many days before the target to start showing a warning. Default: 3 days.
+- **Summary bar**: shows over/approaching counts next to the board name. Shares the bar with Total WIP when both features are active.
+- **Status emojis**: a configurable emoji is prepended to the age badge as cards approach (default ⚠️) or breach (default 🔴) the target.
+- **Colored border**: adds a dashed orange border as cards approach the target and a solid red border when breached.
+
+The summary bar, status emojis, and colored border are each independently toggleable.
+
+---
 
 ## Requirements
 
-For this extension to function correctly, your ServiceNow instance must meet the following conditions:
+### Work Item Age Badges
 
-1. **Include the "Actual Start Date" field in the VTB form view** for the task types you wish to track. This field is preferred because it can be set independently of when the record was opened. If it isn't available, ensure the card provides **Start date** or at least the **Opened** field so the extension can use them as backups.
-   - This requires configuring the form layout to include the relevant field in the "VTB" view (this view may need to be created if it does not already exist). The field does not need to be visible on the card by default; however, it must be part of the form view to ensure the data is available to the extension.
+For age badges to show meaningful values, your ServiceNow instance should meet the following:
 
-2. **Populate the "Actual Start Date"** through state changes, workflows, or other automation. When this field isn't managed, the extension falls back to the **Start date** (which counts as the same start of work) and then the **Opened** date, which may not reflect when work actually began.
-   - There are some out of the box processes in ServiceNow that automatically set **Actual Start Date**. One example is when a task (enhancement, story, etc.) moves into a Work in Progress state. You must ensure that this field is populated through state changes, workflows, business rules, automation scripts (like with Flow Designer), or manual entry.
+1. **Include the Actual Start Date field in the VTB form view** for the task types you want to track. The field does not need to be visible on the card face, but it must be part of the VTB form view so its data is available to the extension. If unavailable, the extension falls back to Start Date, then Opened.
 
-![Highlighting the requirements of having Actual start date on the VTB view of the task.](images/screenshot2.png)
+2. **Populate Actual Start Date through automation or workflow.** ServiceNow can set this automatically when a task transitions to an active state (e.g. In Progress). Without automation, the extension falls back to Start Date or Opened, which may not accurately reflect when work began.
+
+![VTB card info showing Actual Start Date field](images/screenshot-vtb-form-fields.png)
+
+> **Tip:** Enable **Show Card Info** in the Visual Task Board settings to make date fields visible on cards and confirm the extension is reading the right values.
+
+---
 
 ## Installation
 
-### From Edge Add-ons Store (Recommended)
-1. Visit the [Microsoft Edge Add-ons Store](https://microsoftedge.microsoft.com/addons/detail/servicenow-visual-task-bo/jmhhlihdkbdeemfdmehanpkbfkkahpdd).
+### From the Microsoft Edge Add-ons Store (recommended)
+
+1. Visit the [Microsoft Edge Add-ons Store listing](https://microsoftedge.microsoft.com/addons/detail/servicenow-visual-task-bo/jmhhlihdkbdeemfdmehanpkbfkkahpdd).
 2. Click **Get** and follow the on-screen instructions.
 
-### Manual Installation (Development Mode)
-1. Download or clone this repository to a folder on your computer.
-2. Open Microsoft Edge and navigate to `edge://extensions/`.
-3. Enable **Developer Mode** (toggle in the bottom left).
-4. Click **Load unpacked** and select the folder containing the extension files.
-5. The extension should now be active.
+### Manual installation (development mode)
 
-## Usage
+1. Download or clone this repository.
+2. Open Microsoft Edge and go to `edge://extensions/`.
+3. Enable **Developer Mode**.
+4. Click **Load unpacked** and select the repository folder.
 
-1. Navigate to your **ServiceNow Visual Task Board** (it must have `vtb.do` somewhere in the URL to run).
-2. Open any board where task cards include the **Actual Start Date** (preferred) or at least the **Start date** (treated as the same start of work) or **Opened** date for fallback in their VTB form view. This can be shown by turning on Show Card Info on the Visual Task Board settings (shown in the image above).
-3. If the extension is working, each card will display an "Age" badge at the bottom.
-4. The badge will be color-coded based on task age.
+---
 
-## Customization
+## Configuration
 
-You can customize the color coding of the Work Item Age—both the number of days and the color—and tune the update freshness threshold by using the Extension Options. A default set applies to all boards, and any board you visit will appear in the options so you can tailor its colors and freshness window independently:
+Open the extension options by clicking the extension icon in the Edge toolbar and selecting **Options** (or right-clicking the icon and choosing **Extension options**).
 
-1. Click the extension icon in the Edge toolbar and select **Extension Options**.
-2. Choose a board or select **Default (All Boards)** from the dropdown.
-3. Adjust the age bands, colors, update threshold, and freshness emoji as desired.
-4. Save your changes.
+![Extension options page showing the four feature cards](images/screenshot-options-default.png)
+
+**Default (All Boards)** settings apply to every board you visit unless a board-specific override is saved. Work Item Age Badges and Last Updated Freshness Indicators can be configured at the default level. Total Work in Progress and SLE Target are board-specific only — they require knowledge of a board's lanes and purpose.
+
+**Board-specific settings** become available after you visit a board at least once; the extension automatically discovers the board's name and lane structure. Select the board from the dropdown to configure it independently.
+
+![Options page for a specific board showing lane selection](images/screenshot-options-board.png)
+
+Changes take effect the next time you load a VTB page.
+
+---
 
 ## Troubleshooting
 
-### 1. No Work Item Age is Displayed
-- Ensure that the **Actual Start Date** field is included in the VTB form view for the relevant task types. If it's not being used, the card must expose **Start date** or the **Opened** field as backups.
-- Confirm that the **Actual Start Date** is populated. If it's not managed, verify that the **Start date** or **Opened** date exists so the extension can fall back to it.
-- Turn on Show Card Info on the Visual Task Board settings to force ServiceNow to send this field to the browser.
-- Refresh the page or reload the extension.
+### Age badges not appearing
 
-### 2. Incorrect or Unexpected Values
-- Verify that the **Actual Start Date**, **Start date**, or **Opened** date is correctly formatted and valid.
-- Check if any ServiceNow customizations or security restrictions are preventing access to card data.
+- Confirm that at least one of **Actual Start Date**, **Start Date**, or **Opened** is included in the VTB form view and populated on the card.
+- Enable **Show Card Info** in the VTB settings to expose card fields.
+- Reload the page or reload the extension from `edge://extensions/`.
 
-### 3. Extension Does Not Load
-- Ensure the extension is **enabled** in `edge://extensions/`.
-- Check the console (`F12` → Console) for errors.
-- If running manually, reload the unpacked extension.
+### Age count seems incorrect
 
-## Contribution
+- Verify the date field is correctly formatted and populated.
+- Check whether ServiceNow customizations or security restrictions are hiding field data from the browser.
 
-Pull requests and contributions are welcome! If you encounter any issues or have suggestions for improvements, feel free to submit an issue.
+### Total WIP shows 0
+
+- Ensure the feature is enabled for the board and at least one WIP lane is selected in the options.
+- Visit the board once after saving options so the extension can read ServiceNow's lane counts.
+
+### SLE or freshness indicators not showing
+
+- Confirm the feature is toggled on for the board in options and saved.
+- For SLE, verify the target days value is greater than 0.
+- For freshness indicators, check that the correct threshold is set and — if lane restriction is on — that the relevant lanes are checked.
+
+### Extension does not load
+
+- Confirm the extension is enabled in `edge://extensions/`.
+- Check the browser console (`F12` → **Console**) for errors.
+- The extension only runs on URLs matching `*://*.service-now.com/*vtb.do*`.
+
+---
+
+## Contributing
+
+Pull requests and issue reports are welcome. Please open an issue before submitting a substantial change so the approach can be discussed first.
+
+---
 
 ## License
 
-This project is licensed under the GNU General Public License v3.0. See the [LICENSE](LICENSE) file for details.
+This project is licensed under the **GNU General Public License v3.0**. See the [LICENSE](LICENSE) file for details.
