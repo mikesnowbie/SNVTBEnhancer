@@ -410,6 +410,10 @@
         ? boardConfig.totalWip
         : { enabled: false, lanes: [] },
     };
+    // True when the summary bar has something to show regardless of badge/indicator toggles.
+    const anySummaryActive =
+      (config.sle && config.sle.enabled !== false && config.sle.days > 0 && config.sle.showSummary !== false) ||
+      (config.totalWip && config.totalWip.enabled === true && Array.isArray(config.totalWip.lanes) && config.totalWip.lanes.length > 0);
     // --- Utility Functions ---
     function showDebugMessage(msg) {
       const div = document.createElement('div');
@@ -1121,7 +1125,8 @@
     }
 
     function processExistingCards() {
-      if (!config.enableAgeBadge && !config.enableUpdateIndicator) return;
+      if (!config.enableAgeBadge && !config.enableUpdateIndicator &&
+          !(config.sle && config.sle.enabled !== false && config.sle.days > 0)) return;
       const cards = document.querySelectorAll('.vtb-card-component-wrapper');
       cards.forEach((card) => processCard(card));
       if (config.enableUpdateIndicator) {
@@ -1130,7 +1135,7 @@
     }
 
     function observeCards() {
-      if (!config.enableAgeBadge && !config.enableUpdateIndicator) return;
+      if (!config.enableAgeBadge && !config.enableUpdateIndicator && !anySummaryActive) return;
       let sleBarTimer = null;
       const debouncedSummaryUpdate = () => {
         if (sleBarTimer) clearTimeout(sleBarTimer);
@@ -1242,7 +1247,7 @@
     function init() {
       waitForBoardLoad(() => {
         updateBoardInfo(fullConfig);
-        if (!config.enableAgeBadge && !config.enableUpdateIndicator) {
+        if (!config.enableAgeBadge && !config.enableUpdateIndicator && !anySummaryActive) {
           showDebugMessage('VTB Enhancer disabled for this board (all toggles off)');
           return;
         }

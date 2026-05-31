@@ -911,6 +911,8 @@ document.addEventListener('DOMContentLoaded', function () {
         delete fullConfig.boards[currentBoardId].updateIndicator;
         delete fullConfig.boards[currentBoardId].enableAgeBadge;
         delete fullConfig.boards[currentBoardId].enableUpdateIndicator;
+        delete fullConfig.boards[currentBoardId].enableAgeBadgePrefix;
+        delete fullConfig.boards[currentBoardId].ageBadgePrefix;
         delete fullConfig.boards[currentBoardId].enableWipLanes;
         delete fullConfig.boards[currentBoardId].wipLanes;
         delete fullConfig.boards[currentBoardId].sle;
