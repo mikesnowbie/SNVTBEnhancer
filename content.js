@@ -1059,6 +1059,48 @@
         if (cardChanged && config.sle && config.sle.enabled !== false && config.sle.days > 0) debouncedSleUpdate();
       });
       observer.observe(document.body, { childList: true, subtree: true });
+
+      // ServiceNow's vtb-viewport-on-scroll directive hides card wrappers outside
+      // the visible scroll area (display:none) and reveals them (display:block) as
+      // the user scrolls. The main childList observer above does not fire for this
+      // because no nodes are added or removed — only the style attribute changes.
+      // Watch each card wrapper individually for that style change so we can
+      // apply the freshness indicator as soon as a card becomes visible, without
+      // requiring a hover first.
+      if (config.enableUpdateIndicator) {
+        const visibilityObserver = new MutationObserver((mutations) => {
+          for (const mutation of mutations) {
+            const card = mutation.target;
+            if (card.style.display !== 'none') {
+              annotateLastUpdated(card);
+            }
+          }
+        });
+
+        const watchCardVisibility = (card) => {
+          visibilityObserver.observe(card, {
+            attributes: true,
+            attributeFilter: ['style'],
+          });
+        };
+
+        document.querySelectorAll('.vtb-card-component-wrapper').forEach(watchCardVisibility);
+
+        // Also watch any card wrappers added after initial load.
+        const newCardObserver = new MutationObserver((mutations) => {
+          mutations.forEach((mutation) => {
+            mutation.addedNodes.forEach((node) => {
+              if (node.nodeType === Node.ELEMENT_NODE) {
+                if (node.classList?.contains('vtb-card-component-wrapper')) {
+                  watchCardVisibility(node);
+                }
+                node.querySelectorAll?.('.vtb-card-component-wrapper').forEach(watchCardVisibility);
+              }
+            });
+          });
+        });
+        newCardObserver.observe(document.body, { childList: true, subtree: true });
+      }
     }
 
     // Wait until the board appears to be fully loaded (using a 1-second debounce)
