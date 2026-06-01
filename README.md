@@ -27,9 +27,9 @@ Adds a color-coded badge to the bottom of every card showing how many days the w
 
 The extension looks for date fields on each card in priority order:
 
-1. **Actual Start Date** — preferred. Records when work truly began. Teams can set this independently of when the record was created.
-2. **Start Date** — used if Actual Start Date is absent. Treated as the same starting point.
-3. **Opened** — fallback. Represents when the record was created, which may predate actual work starting.
+1. `Actual Start Date` — preferred and used whenever present because it records when work truly began. Users can independently decide their methods for updating the Actual Start Date field.
+2. `Start Date` — used if Actual Start Date is missing or empty.
+3. `Opened` — fallback. Represents when the record was created, which may predate actual work starting.
 
 **Default color bands**
 
@@ -57,7 +57,7 @@ Displays the grand total number of cards across your designated WIP lanes in a s
 
 ![Summary bar showing Total WIP and SLE counts](images/screenshot-summary-bar.png)
 
-ServiceNow already shows a per-lane card count at the top of each lane column. What it does not show is a combined total across the lanes that represent active work in progress — that is a user-defined concept depending on how your board is organized. This feature lets you designate which lanes are WIP lanes, then surfaces the total as a Kanban flow metric.
+ServiceNow already shows a per-lane card count at the top of each lane column. What it does not show is a combined total across the lanes that represent active work in progress, which is a user-defined concept depending on how your board is organized. This feature lets you designate which lanes are WIP lanes, then surfaces the total as a Kanban flow metric.
 
 **Configuration options**
 
@@ -68,7 +68,7 @@ ServiceNow already shows a per-lane card count at the top of each lane column. W
 
 ### 3. Last Updated Freshness Indicators
 
-Adds a fresh or stale emoji next to the last-updated timestamp on each card, making it easy to spot cards that haven't been touched recently.
+Adds a fresh or stale emoji next to the last-updated timestamp on each card, making it easy to spot cards that haven't been touched recently. This is great for keeping things updated within a team working agreement.
 
 ![Cards showing fresh and stale indicators next to timestamps](images/screenshot-freshness.png)
 
@@ -88,7 +88,7 @@ Sets a maximum age target in days per board. Cards approaching or breaching the 
 
 **Configuration options**
 
-- **SLE target (days)**: cards older than this are considered over SLE. Set to 0 to disable.
+- **SLE target (days)**: cards older than this are considered over SLE.
 - **Approaching warning (days before target)**: how many days before the target to start showing a warning. Default: 3 days.
 - **Summary bar**: shows over/approaching counts next to the board name. Shares the bar with Total WIP when both features are active.
 - **Status emojis**: a configurable emoji is prepended to the age badge as cards approach (default ⚠️) or breach (default 🔴) the target.
@@ -104,9 +104,9 @@ The summary bar, status emojis, and colored border are each independently toggle
 
 For age badges to show meaningful values, your ServiceNow instance should meet the following:
 
-1. **Include the Actual Start Date field in the VTB form view** for the task types you want to track. The field does not need to be visible on the card face, but it must be part of the VTB form view so its data is available to the extension. If unavailable, the extension falls back to Start Date, then Opened.
+1. **Include the `Actual Start Date` field in the VTB form view** for the task types you want to track. The field does not need to be visible on the card face, but it must be part of the VTB form view so its data is available to the extension. If unavailable, the extension falls back to `Start Date`, then `Opened`.
 
-2. **Populate Actual Start Date through automation or workflow.** ServiceNow can set this automatically when a task transitions to an active state (e.g. In Progress). Without automation, the extension falls back to Start Date or Opened, which may not accurately reflect when work began.
+2. **Populate `Actual Start Date` through automation or workflow.** ServiceNow can set this automatically when a task transitions to an active state (e.g. In Progress for enhancements and stories) or through ServiceNow tools like Flow Designer. It can also be manually set on most task types. Without automation or a manual workflow to update `Actual Start Date`, the work item age badge may not accurately reflect when work began.
 
 ![VTB card info showing Actual Start Date field](images/screenshot-vtb-form-fields.png)
 
@@ -123,24 +123,24 @@ For age badges to show meaningful values, your ServiceNow instance should meet t
 
 ### Manual installation (development mode)
 
-1. Download or clone this repository.
-2. Open Microsoft Edge and go to `edge://extensions/`.
+1. Download the desired release's zip file from [Releases](https://github.com/mikesnowbie/SNVTBEnhancer/releases) and unzip to a folder.
+2. Open Microsoft Edge and go to [edge://extensions/](edge://extensions/).
 3. Enable **Developer Mode**.
-4. Click **Load unpacked** and select the repository folder.
+4. Click **Load unpacked** and select the folder where you unzipped the extension.
 
 ---
 
 ## Configuration
 
-Open the extension options by clicking the extension icon in the Edge toolbar and selecting **Options** (or right-clicking the icon and choosing **Extension options**).
+Open the extension options by clicking the extension icon in the Edge toolbar and selecting **Extension Options**.
 
-![Extension options page showing the four feature cards](images/screenshot-options-default.png)
+**Default (All Boards)** settings apply to every board you visit unless a board-specific override is saved. Work Item Age Badges and Last Updated Freshness Indicators can be configured at the default level. Total Work in Progress and SLE Target are board-specific only and require knowledge of a board's lanes and purpose.
 
-**Default (All Boards)** settings apply to every board you visit unless a board-specific override is saved. Work Item Age Badges and Last Updated Freshness Indicators can be configured at the default level. Total Work in Progress and SLE Target are board-specific only — they require knowledge of a board's lanes and purpose.
+**Board-specific settings** become available after you visit a board at least once; the extension automatically discovers the board's name and lane structure. Select the board from the Board dropdown to configure it independently.
 
-**Board-specific settings** become available after you visit a board at least once; the extension automatically discovers the board's name and lane structure. Select the board from the dropdown to configure it independently.
+![Options page for a specific board — top half showing feature toggles and age band configuration](images/screenshot-options-1.png)
 
-![Options page for a specific board showing lane selection](images/screenshot-options-board.png)
+![Options page for a specific board — bottom half showing SLE, freshness, and WIP lane selection](images/screenshot-options-2.png)
 
 Changes take effect the next time you load a VTB page.
 
@@ -168,7 +168,7 @@ Changes take effect the next time you load a VTB page.
 
 - Confirm the feature is toggled on for the board in options and saved.
 - For SLE, verify the target days value is greater than 0.
-- For freshness indicators, check that the correct threshold is set and — if lane restriction is on — that the relevant lanes are checked.
+- For freshness indicators, check that the correct threshold is set and, if lane restriction is on, that the relevant lanes are checked.
 
 ### Extension does not load
 
