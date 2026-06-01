@@ -8,6 +8,8 @@ document.addEventListener('DOMContentLoaded', function () {
   const BASE_DEFAULT_CONFIG = {
     enableAgeBadge: true,
     enableUpdateIndicator: true,
+    enableAgeBadgePrefix: false,
+    ageBadgePrefix: '',
     ageBands: [
       { maxDays: 7, color: '#f9e79f' },
       { maxDays: 30, color: '#f0ad4e' },
@@ -22,6 +24,8 @@ document.addEventListener('DOMContentLoaded', function () {
     return {
       enableAgeBadge: true,
       enableUpdateIndicator: true,
+      enableAgeBadgePrefix: false,
+      ageBadgePrefix: '',
       ageBands: BASE_DEFAULT_CONFIG.ageBands.map((b) => ({ ...b })),
       updateThresholdDays: BASE_DEFAULT_CONFIG.updateThresholdDays,
       updateIndicator: { ...BASE_DEFAULT_CONFIG.updateIndicator },
@@ -43,6 +47,31 @@ document.addEventListener('DOMContentLoaded', function () {
   const previewBadge = document.getElementById('previewBadge');
   const previewFresh = document.getElementById('previewFresh');
   const previewStale = document.getElementById('previewStale');
+  const wipLanesSection = document.getElementById('wipLanesSection');
+  const wipLanesToggle = document.getElementById('wipLanesToggle');
+  const wipLanesCheckboxes = document.getElementById('wipLanesCheckboxes');
+  const wipLanesList = document.getElementById('wipLanesList');
+  const exportBtn = document.getElementById('exportBtn');
+  const importBtn = document.getElementById('importBtn');
+  const importFileInput = document.getElementById('importFileInput');
+  const sleDaysInput = document.getElementById('sleDaysInput');
+  const sleApproachingInput = document.getElementById('sleApproachingInput');
+  const sleSummaryToggle = document.getElementById('sleSummaryToggle');
+  const sleEmojiToggle = document.getElementById('sleEmojiToggle');
+  const sleEmojiSettings = document.getElementById('sleEmojiSettings');
+  const sleBorderToggle = document.getElementById('sleBorderToggle');
+  const sleApproachingEmojiInput = document.getElementById('sleApproachingEmojiInput');
+  const sleBreachedEmojiInput = document.getElementById('sleBreachedEmojiInput');
+  const sleToggle = document.getElementById('sleToggle');
+  const sleDefaultHint = document.getElementById('sleDefaultHint');
+  const sleFields = document.getElementById('sleFields');
+  const ageBadgePrefixToggle = document.getElementById('ageBadgePrefixToggle');
+  const ageBadgePrefixInput = document.getElementById('ageBadgePrefixInput');
+  const ageBadgePrefixSettings = document.getElementById('ageBadgePrefixSettings');
+  const totalWipToggle = document.getElementById('totalWipToggle');
+  const totalWipDefaultHint = document.getElementById('totalWipDefaultHint');
+  const totalWipFields = document.getElementById('totalWipFields');
+  const totalWipLanesList = document.getElementById('totalWipLanesList');
 
   let fullConfig = null;
   let currentBoardId = null; // null means default config
@@ -127,6 +156,14 @@ document.addEventListener('DOMContentLoaded', function () {
       typeof cfg.defaultConfig.enableUpdateIndicator === 'boolean'
         ? cfg.defaultConfig.enableUpdateIndicator
         : true;
+    cfg.defaultConfig.enableAgeBadgePrefix =
+      typeof cfg.defaultConfig.enableAgeBadgePrefix === 'boolean'
+        ? cfg.defaultConfig.enableAgeBadgePrefix
+        : false;
+    cfg.defaultConfig.ageBadgePrefix =
+      typeof cfg.defaultConfig.ageBadgePrefix === 'string'
+        ? cfg.defaultConfig.ageBadgePrefix
+        : '';
 
     if (!cfg.boards || typeof cfg.boards !== 'object') {
       cfg.boards = {};
@@ -153,6 +190,40 @@ document.addEventListener('DOMContentLoaded', function () {
         typeof boardCfg.enableUpdateIndicator === 'boolean'
           ? boardCfg.enableUpdateIndicator
           : cfg.defaultConfig.enableUpdateIndicator;
+      boardCfg.enableAgeBadgePrefix =
+        typeof boardCfg.enableAgeBadgePrefix === 'boolean'
+          ? boardCfg.enableAgeBadgePrefix
+          : cfg.defaultConfig.enableAgeBadgePrefix;
+      boardCfg.ageBadgePrefix =
+        typeof boardCfg.ageBadgePrefix === 'string'
+          ? boardCfg.ageBadgePrefix
+          : cfg.defaultConfig.ageBadgePrefix;
+
+      boardCfg.enableWipLanes =
+        typeof boardCfg.enableWipLanes === 'boolean'
+          ? boardCfg.enableWipLanes
+          : Array.isArray(boardCfg.wipLanes) && boardCfg.wipLanes.length > 0;
+
+      if (!boardCfg.totalWip || typeof boardCfg.totalWip !== 'object') {
+        boardCfg.totalWip = { enabled: false, lanes: [] };
+      } else {
+        if (typeof boardCfg.totalWip.enabled !== 'boolean') boardCfg.totalWip.enabled = false;
+        if (!Array.isArray(boardCfg.totalWip.lanes)) boardCfg.totalWip.lanes = [];
+      }
+
+      if (!boardCfg.sle || typeof boardCfg.sle !== 'object') {
+        boardCfg.sle = { enabled: true, days: 0, approachingDays: 3, showSummary: true, showBadgeEmojis: true, showBadgeBorder: true, approachingEmoji: '⚠️', breachedEmoji: '🔴' };
+      } else {
+        if (typeof boardCfg.sle.enabled !== 'boolean') boardCfg.sle.enabled = true;
+        if (typeof boardCfg.sle.days !== 'number' || boardCfg.sle.days < 0) boardCfg.sle.days = 0;
+        if (typeof boardCfg.sle.approachingDays !== 'number' || boardCfg.sle.approachingDays < 0) boardCfg.sle.approachingDays = 3;
+        if (typeof boardCfg.sle.showSummary !== 'boolean') boardCfg.sle.showSummary = true;
+        const legacyEscalation = typeof boardCfg.sle.showBadgeEscalation === 'boolean' ? boardCfg.sle.showBadgeEscalation : true;
+        if (typeof boardCfg.sle.showBadgeEmojis !== 'boolean') boardCfg.sle.showBadgeEmojis = legacyEscalation;
+        if (typeof boardCfg.sle.showBadgeBorder !== 'boolean') boardCfg.sle.showBadgeBorder = legacyEscalation;
+        if (!boardCfg.sle.approachingEmoji || typeof boardCfg.sle.approachingEmoji !== 'string') boardCfg.sle.approachingEmoji = '⚠️';
+        if (!boardCfg.sle.breachedEmoji || typeof boardCfg.sle.breachedEmoji !== 'string') boardCfg.sle.breachedEmoji = '🔴';
+      }
     });
 
     return cfg;
@@ -172,6 +243,191 @@ document.addEventListener('DOMContentLoaded', function () {
         ? source.staleEmoji
         : base.staleEmoji;
     return { freshEmoji: fresh, staleEmoji: stale };
+  }
+
+  function renderWipLanes(boardId) {
+    if (!boardId) {
+      wipLanesSection.style.display = 'none';
+      return;
+    }
+    const boardCfg = fullConfig.boards[boardId];
+    const lanes = (boardCfg && Array.isArray(boardCfg.lanes)) ? boardCfg.lanes : [];
+    const wipLanes = (boardCfg && Array.isArray(boardCfg.wipLanes)) ? boardCfg.wipLanes : [];
+    const enabled = boardCfg && boardCfg.enableWipLanes === true;
+
+    wipLanesToggle.checked = enabled;
+    wipLanesCheckboxes.style.display = enabled ? '' : 'none';
+
+    wipLanesList.innerHTML = '';
+    if (lanes.length === 0) {
+      const hint = document.createElement('p');
+      hint.className = 'field-help';
+      hint.textContent = 'No lanes discovered yet. Visit this board in ServiceNow, then return here to configure lane restrictions.';
+      wipLanesList.appendChild(hint);
+    } else {
+      lanes.forEach((lane) => {
+        const item = document.createElement('div');
+        item.className = 'lane-checkbox-item';
+        const cb = document.createElement('input');
+        cb.type = 'checkbox';
+        const safeId = 'lane-' + lane.replace(/[^a-z0-9]/gi, '-');
+        cb.id = safeId;
+        cb.value = lane;
+        cb.checked = wipLanes.includes(lane);
+        const lbl = document.createElement('label');
+        lbl.htmlFor = safeId;
+        lbl.textContent = lane;
+        item.appendChild(cb);
+        item.appendChild(lbl);
+        wipLanesList.appendChild(item);
+      });
+    }
+    wipLanesSection.style.display = '';
+  }
+
+  function getWipLanesFromUI() {
+    const checked = [];
+    wipLanesList.querySelectorAll('input[type="checkbox"]:checked').forEach((cb) => {
+      checked.push(cb.value);
+    });
+    return checked;
+  }
+
+  function updateSleVisibility() {
+    const sleToggleLabel = sleToggle.parentElement;
+    if (currentBoardId) {
+      sleToggleLabel.style.display = '';
+      sleDefaultHint.style.display = 'none';
+      sleFields.style.display = sleToggle.checked ? '' : 'none';
+    } else {
+      sleToggleLabel.style.display = 'none';
+      sleDefaultHint.style.display = '';
+      sleFields.style.display = 'none';
+    }
+  }
+
+  function renderSleToUI(sle) {
+    const s = sle || { enabled: true, days: 0, approachingDays: 3, showSummary: true, showBadgeEmojis: true, showBadgeBorder: true, approachingEmoji: '⚠️', breachedEmoji: '🔴' };
+    sleToggle.checked = s.enabled !== false;
+    sleDaysInput.value = s.days;
+    sleApproachingInput.value = s.approachingDays;
+    sleSummaryToggle.checked = s.showSummary !== false;
+    sleEmojiToggle.checked = s.showBadgeEmojis !== false;
+    sleEmojiSettings.style.display = sleEmojiToggle.checked ? '' : 'none';
+    sleBorderToggle.checked = s.showBadgeBorder !== false;
+    sleApproachingEmojiInput.value = s.approachingEmoji || '⚠️';
+    sleBreachedEmojiInput.value = s.breachedEmoji || '🔴';
+  }
+
+  function getSleFromInputs() {
+    const days = parseInt(sleDaysInput.value, 10);
+    const approachingDays = parseInt(sleApproachingInput.value, 10);
+    return {
+      enabled: sleToggle.checked,
+      days: isNaN(days) || days < 0 ? 0 : days,
+      approachingDays: isNaN(approachingDays) || approachingDays < 0 ? 3 : approachingDays,
+      showSummary: sleSummaryToggle.checked,
+      showBadgeEmojis: sleEmojiToggle.checked,
+      showBadgeBorder: sleBorderToggle.checked,
+      approachingEmoji: sleApproachingEmojiInput.value.trim() || '⚠️',
+      breachedEmoji: sleBreachedEmojiInput.value.trim() || '🔴',
+    };
+  }
+
+  function updateSleEmojiVisibility() {
+    sleEmojiSettings.style.display = sleEmojiToggle.checked ? '' : 'none';
+  }
+
+  function updateTotalWipVisibility() {
+    const totalWipToggleLabel = totalWipToggle.parentElement;
+    if (currentBoardId) {
+      totalWipToggleLabel.style.display = '';
+      totalWipDefaultHint.style.display = 'none';
+      totalWipFields.style.display = totalWipToggle.checked ? '' : 'none';
+    } else {
+      totalWipToggleLabel.style.display = 'none';
+      totalWipDefaultHint.style.display = '';
+      totalWipFields.style.display = 'none';
+    }
+  }
+
+  function createWipFlowDivider(label) {
+    const div = document.createElement('div');
+    div.className = 'wip-flow-divider';
+    div.textContent = label;
+    return div;
+  }
+
+  function getTotalWipFromUI() {
+    const checked = [];
+    totalWipLanesList.querySelectorAll('input[type="checkbox"]:checked').forEach((cb) => {
+      checked.push(cb.value);
+    });
+    return checked;
+  }
+
+  function rebuildTotalWipDividers() {
+    if (!currentBoardId) return;
+    const boardCfg = fullConfig.boards[currentBoardId];
+    const lanes = (boardCfg && Array.isArray(boardCfg.lanes)) ? boardCfg.lanes : [];
+    buildTotalWipList(lanes, getTotalWipFromUI());
+  }
+
+  function buildTotalWipList(lanes, selectedLanes) {
+    totalWipLanesList.innerHTML = '';
+    if (lanes.length === 0) {
+      const hint = document.createElement('p');
+      hint.className = 'field-help';
+      hint.textContent = 'No lanes discovered yet. Visit this board in ServiceNow, then return here to configure WIP lanes.';
+      totalWipLanesList.appendChild(hint);
+      return;
+    }
+    for (let i = 0; i < lanes.length; i++) {
+      const lane = lanes[i];
+      const isChecked = selectedLanes.includes(lane);
+      const prevChecked = i > 0 ? selectedLanes.includes(lanes[i - 1]) : false;
+      const nextChecked = i < lanes.length - 1 ? selectedLanes.includes(lanes[i + 1]) : false;
+
+      if (isChecked && !prevChecked) {
+        totalWipLanesList.appendChild(createWipFlowDivider('Start'));
+      }
+
+      const item = document.createElement('div');
+      item.className = 'lane-checkbox-item';
+      const cb = document.createElement('input');
+      cb.type = 'checkbox';
+      const safeId = 'twip-' + lane.replace(/[^a-z0-9]/gi, '-');
+      cb.id = safeId;
+      cb.value = lane;
+      cb.checked = isChecked;
+      cb.addEventListener('change', rebuildTotalWipDividers);
+      const lbl = document.createElement('label');
+      lbl.htmlFor = safeId;
+      lbl.textContent = lane;
+      item.appendChild(cb);
+      item.appendChild(lbl);
+      totalWipLanesList.appendChild(item);
+
+      if (isChecked && !nextChecked) {
+        totalWipLanesList.appendChild(createWipFlowDivider('Finish'));
+      }
+    }
+  }
+
+  function renderTotalWipLanes(boardId) {
+    totalWipLanesList.innerHTML = '';
+    if (!boardId) return;
+    const boardCfg = fullConfig.boards[boardId];
+    const lanes = (boardCfg && Array.isArray(boardCfg.lanes)) ? boardCfg.lanes : [];
+    const selectedLanes = (boardCfg && boardCfg.totalWip && Array.isArray(boardCfg.totalWip.lanes))
+      ? boardCfg.totalWip.lanes
+      : [];
+    buildTotalWipList(lanes, selectedLanes);
+  }
+
+  function updateAgeBadgePrefixVisibility() {
+    ageBadgePrefixSettings.style.display = ageBadgePrefixToggle.checked ? '' : 'none';
+    updatePreview();
   }
 
   function toggleSettingsVisibility() {
@@ -206,7 +462,8 @@ document.addEventListener('DOMContentLoaded', function () {
       const color = getPreviewBandColor();
       previewBadge.style.backgroundColor = color;
       previewBadge.style.color = '#fff';
-      previewBadge.textContent = 'Age: 10 days';
+      const prefix = ageBadgePrefixToggle.checked ? (ageBadgePrefixInput.value || '').trimEnd() : '';
+      previewBadge.textContent = prefix ? `${prefix} 10d` : '10d';
       previewBadge.style.display = '';
     } else if (previewBadge) {
       previewBadge.style.display = 'none';
@@ -232,7 +489,6 @@ document.addEventListener('DOMContentLoaded', function () {
     const updateOn = config.enableUpdateIndicator !== false;
     ageBadgeToggle.checked = ageOn;
     updateIndicatorToggle.checked = updateOn;
-    toggleSettingsVisibility();
 
     const thresholdValue =
       typeof config.updateThresholdDays === 'number' && config.updateThresholdDays >= 0
@@ -249,6 +505,32 @@ document.addEventListener('DOMContentLoaded', function () {
       const row = createRow(band);
       tableBody.appendChild(row);
     });
+
+    ageBadgePrefixToggle.checked = config.enableAgeBadgePrefix === true;
+    ageBadgePrefixInput.value = config.ageBadgePrefix || '';
+    ageBadgePrefixSettings.style.display = config.enableAgeBadgePrefix ? '' : 'none';
+
+    renderWipLanes(currentBoardId);
+    updateExportImportVisibility();
+    // Render SLE fields first so that sleToggle.checked is set before updateSleVisibility reads it.
+    if (currentBoardId) {
+      const boardSle = fullConfig.boards[currentBoardId] && fullConfig.boards[currentBoardId].sle;
+      renderSleToUI(boardSle);
+    } else {
+      sleToggle.checked = true;
+    }
+    updateSleVisibility();
+    if (currentBoardId) {
+      const boardTotalWip = fullConfig.boards[currentBoardId] && fullConfig.boards[currentBoardId].totalWip;
+      totalWipToggle.checked = boardTotalWip && boardTotalWip.enabled === true;
+      renderTotalWipLanes(currentBoardId);
+    } else {
+      totalWipToggle.checked = false;
+      totalWipLanesList.innerHTML = '';
+    }
+    updateTotalWipVisibility();
+    // All inputs are now populated — call this last so updatePreview reads the correct values.
+    toggleSettingsVisibility();
   }
 
   function refreshTable() {
@@ -373,6 +655,14 @@ document.addEventListener('DOMContentLoaded', function () {
           typeof board.enableUpdateIndicator === 'boolean'
             ? board.enableUpdateIndicator
             : fullConfig.defaultConfig.enableUpdateIndicator,
+        enableAgeBadgePrefix:
+          typeof board.enableAgeBadgePrefix === 'boolean'
+            ? board.enableAgeBadgePrefix
+            : fullConfig.defaultConfig.enableAgeBadgePrefix,
+        ageBadgePrefix:
+          typeof board.ageBadgePrefix === 'string'
+            ? board.ageBadgePrefix
+            : fullConfig.defaultConfig.ageBadgePrefix,
         ageBands,
         updateThresholdDays: threshold,
         updateIndicator: normalizeIndicator(
@@ -384,19 +674,172 @@ document.addEventListener('DOMContentLoaded', function () {
     return {
       enableAgeBadge: fullConfig.defaultConfig.enableAgeBadge,
       enableUpdateIndicator: fullConfig.defaultConfig.enableUpdateIndicator,
+      enableAgeBadgePrefix: fullConfig.defaultConfig.enableAgeBadgePrefix,
+      ageBadgePrefix: fullConfig.defaultConfig.ageBadgePrefix,
       ageBands: fullConfig.defaultConfig.ageBands.map((b) => ({ ...b })),
       updateThresholdDays: fullConfig.defaultConfig.updateThresholdDays,
       updateIndicator: { ...fullConfig.defaultConfig.updateIndicator },
     };
   }
 
+  // --- Export / Import ---
+
+  function updateExportImportVisibility() {
+    const show = !!currentBoardId;
+    exportBtn.style.display = show ? '' : 'none';
+    importBtn.style.display = show ? '' : 'none';
+  }
+
+  function exportBoardConfig() {
+    if (!currentBoardId) return;
+    const board = fullConfig.boards[currentBoardId] || {};
+    const payload = {
+      vtbEnhancerBoardConfig: {
+        enableAgeBadge: typeof board.enableAgeBadge === 'boolean'
+          ? board.enableAgeBadge
+          : fullConfig.defaultConfig.enableAgeBadge,
+        enableUpdateIndicator: typeof board.enableUpdateIndicator === 'boolean'
+          ? board.enableUpdateIndicator
+          : fullConfig.defaultConfig.enableUpdateIndicator,
+        enableAgeBadgePrefix: typeof board.enableAgeBadgePrefix === 'boolean'
+          ? board.enableAgeBadgePrefix
+          : fullConfig.defaultConfig.enableAgeBadgePrefix,
+        ageBadgePrefix: typeof board.ageBadgePrefix === 'string'
+          ? board.ageBadgePrefix
+          : fullConfig.defaultConfig.ageBadgePrefix,
+        ageBands: (board.ageBands || fullConfig.defaultConfig.ageBands).map((b) => ({ ...b })),
+        updateThresholdDays: typeof board.updateThresholdDays === 'number'
+          ? board.updateThresholdDays
+          : fullConfig.defaultConfig.updateThresholdDays,
+        updateIndicator: { ...normalizeIndicator(board.updateIndicator, fullConfig.defaultConfig.updateIndicator) },
+        enableWipLanes: typeof board.enableWipLanes === 'boolean' ? board.enableWipLanes : false,
+        wipLanes: Array.isArray(board.wipLanes) ? [...board.wipLanes] : [],
+        sle: board.sle && typeof board.sle === 'object'
+          ? { ...board.sle }
+          : { enabled: true, days: 0, approachingDays: 3, showSummary: true, showBadgeEmojis: true, showBadgeBorder: true, approachingEmoji: '⚠️', breachedEmoji: '🔴' },
+        totalWip: board.totalWip && typeof board.totalWip === 'object'
+          ? { enabled: board.totalWip.enabled === true, lanes: Array.isArray(board.totalWip.lanes) ? [...board.totalWip.lanes] : [] }
+          : { enabled: false, lanes: [] },
+      },
+    };
+    const json = JSON.stringify(payload, null, 2);
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const boardName = (board.name || currentBoardId).replace(/[^a-z0-9]/gi, '-').toLowerCase();
+    a.href = url;
+    a.download = `vtb-board-config-${boardName}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  function applyImportedConfig(jsonStr) {
+    let parsed;
+    try {
+      parsed = JSON.parse(jsonStr);
+    } catch (_) {
+      return 'Invalid JSON — please check the pasted text and try again.';
+    }
+    const incoming = parsed && parsed.vtbEnhancerBoardConfig;
+    if (!incoming || typeof incoming !== 'object') {
+      return 'Unrecognised format — the JSON must contain a "vtbEnhancerBoardConfig" key.';
+    }
+    if (!currentBoardId) return 'No board selected.';
+
+    if (!fullConfig.boards[currentBoardId]) {
+      fullConfig.boards[currentBoardId] = { name: currentBoardId };
+    }
+    const target = fullConfig.boards[currentBoardId];
+
+    if (typeof incoming.enableAgeBadge === 'boolean') target.enableAgeBadge = incoming.enableAgeBadge;
+    if (typeof incoming.enableUpdateIndicator === 'boolean') target.enableUpdateIndicator = incoming.enableUpdateIndicator;
+    if (typeof incoming.enableAgeBadgePrefix === 'boolean') target.enableAgeBadgePrefix = incoming.enableAgeBadgePrefix;
+    if (typeof incoming.ageBadgePrefix === 'string') target.ageBadgePrefix = incoming.ageBadgePrefix;
+    if (typeof incoming.updateThresholdDays === 'number' && incoming.updateThresholdDays >= 0) {
+      target.updateThresholdDays = incoming.updateThresholdDays;
+    }
+    if (incoming.updateIndicator && typeof incoming.updateIndicator === 'object') {
+      target.updateIndicator = normalizeIndicator(incoming.updateIndicator, fullConfig.defaultConfig.updateIndicator);
+    }
+    if (Array.isArray(incoming.ageBands) && incoming.ageBands.length > 0) {
+      const bands = incoming.ageBands.filter(
+        (b) => b && typeof b.maxDays === 'number' && b.maxDays > 0 && typeof b.color === 'string'
+      );
+      if (bands.length > 0) target.ageBands = bands;
+    }
+    if (typeof incoming.enableWipLanes === 'boolean') target.enableWipLanes = incoming.enableWipLanes;
+    if (Array.isArray(incoming.wipLanes)) {
+      target.wipLanes = incoming.wipLanes.filter((l) => typeof l === 'string');
+    }
+    if (incoming.totalWip && typeof incoming.totalWip === 'object') {
+      target.totalWip = {
+        enabled: typeof incoming.totalWip.enabled === 'boolean' ? incoming.totalWip.enabled : false,
+        lanes: Array.isArray(incoming.totalWip.lanes) ? incoming.totalWip.lanes.filter((l) => typeof l === 'string') : [],
+      };
+    }
+    if (incoming.sle && typeof incoming.sle === 'object') {
+      target.sle = {
+        enabled: typeof incoming.sle.enabled === 'boolean' ? incoming.sle.enabled : true,
+        days: typeof incoming.sle.days === 'number' && incoming.sle.days >= 0 ? incoming.sle.days : 0,
+        approachingDays: typeof incoming.sle.approachingDays === 'number' && incoming.sle.approachingDays >= 0 ? incoming.sle.approachingDays : 3,
+        showSummary: typeof incoming.sle.showSummary === 'boolean' ? incoming.sle.showSummary : true,
+        showBadgeEmojis: typeof incoming.sle.showBadgeEmojis === 'boolean' ? incoming.sle.showBadgeEmojis : (typeof incoming.sle.showBadgeEscalation === 'boolean' ? incoming.sle.showBadgeEscalation : true),
+        showBadgeBorder: typeof incoming.sle.showBadgeBorder === 'boolean' ? incoming.sle.showBadgeBorder : (typeof incoming.sle.showBadgeEscalation === 'boolean' ? incoming.sle.showBadgeEscalation : true),
+        approachingEmoji: typeof incoming.sle.approachingEmoji === 'string' && incoming.sle.approachingEmoji.trim() ? incoming.sle.approachingEmoji : '⚠️',
+        breachedEmoji: typeof incoming.sle.breachedEmoji === 'string' && incoming.sle.breachedEmoji.trim() ? incoming.sle.breachedEmoji : '🔴',
+      };
+    }
+
+    renderConfigToUI(getCurrentConfig());
+    return null; // no error
+  }
+
+  exportBtn.addEventListener('click', exportBoardConfig);
+
+  importBtn.addEventListener('click', () => {
+    importFileInput.value = '';
+    importFileInput.click();
+  });
+
+  importFileInput.addEventListener('change', () => {
+    const file = importFileInput.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const err = applyImportedConfig(e.target.result);
+      if (err) {
+        statusDiv.textContent = err;
+      } else {
+        saveConfig(fullConfig, () => {
+          statusDiv.textContent = 'Settings imported and saved.';
+          setTimeout(() => { statusDiv.textContent = ''; }, 3000);
+        });
+      }
+    };
+    reader.readAsText(file);
+  });
+
+  // --- End Export / Import ---
+
   boardSelect.addEventListener('change', () => {
     currentBoardId = boardSelect.value || null;
+    updateExportImportVisibility();
+    updateSleVisibility();
     renderConfigToUI(getCurrentConfig());
   });
 
   ageBadgeToggle.addEventListener('change', toggleSettingsVisibility);
   updateIndicatorToggle.addEventListener('change', toggleSettingsVisibility);
+  ageBadgePrefixToggle.addEventListener('change', updateAgeBadgePrefixVisibility);
+  ageBadgePrefixInput.addEventListener('input', updatePreview);
+  wipLanesToggle.addEventListener('change', () => {
+    wipLanesCheckboxes.style.display = wipLanesToggle.checked ? '' : 'none';
+  });
+  sleToggle.addEventListener('change', updateSleVisibility);
+  sleEmojiToggle.addEventListener('change', updateSleEmojiVisibility);
+  totalWipToggle.addEventListener('change', updateTotalWipVisibility);
   thresholdInput.addEventListener('input', updatePreview);
   freshEmojiInput.addEventListener('input', updatePreview);
   staleEmojiInput.addEventListener('input', updatePreview);
@@ -421,6 +864,8 @@ document.addEventListener('DOMContentLoaded', function () {
     const indicatorValue = getIndicatorFromInputs();
     const ageBadgeEnabled = ageBadgeToggle.checked;
     const updateIndicatorEnabled = updateIndicatorToggle.checked;
+    const enableAgeBadgePrefix = ageBadgePrefixToggle.checked;
+    const ageBadgePrefix = (ageBadgePrefixInput.value || '').trimEnd();
     if (currentBoardId) {
       if (!fullConfig.boards[currentBoardId]) {
         fullConfig.boards[currentBoardId] = {
@@ -429,12 +874,23 @@ document.addEventListener('DOMContentLoaded', function () {
       }
       fullConfig.boards[currentBoardId].enableAgeBadge = ageBadgeEnabled;
       fullConfig.boards[currentBoardId].enableUpdateIndicator = updateIndicatorEnabled;
+      fullConfig.boards[currentBoardId].enableAgeBadgePrefix = enableAgeBadgePrefix;
+      fullConfig.boards[currentBoardId].ageBadgePrefix = ageBadgePrefix;
       fullConfig.boards[currentBoardId].ageBands = newBands;
       fullConfig.boards[currentBoardId].updateThresholdDays = thresholdValue;
       fullConfig.boards[currentBoardId].updateIndicator = indicatorValue;
+      fullConfig.boards[currentBoardId].enableWipLanes = wipLanesToggle.checked;
+      fullConfig.boards[currentBoardId].wipLanes = getWipLanesFromUI();
+      fullConfig.boards[currentBoardId].sle = getSleFromInputs();
+      fullConfig.boards[currentBoardId].totalWip = {
+        enabled: totalWipToggle.checked,
+        lanes: getTotalWipFromUI(),
+      };
     } else {
       fullConfig.defaultConfig.enableAgeBadge = ageBadgeEnabled;
       fullConfig.defaultConfig.enableUpdateIndicator = updateIndicatorEnabled;
+      fullConfig.defaultConfig.enableAgeBadgePrefix = enableAgeBadgePrefix;
+      fullConfig.defaultConfig.ageBadgePrefix = ageBadgePrefix;
       fullConfig.defaultConfig.ageBands = newBands;
       fullConfig.defaultConfig.updateThresholdDays = thresholdValue;
       fullConfig.defaultConfig.updateIndicator = indicatorValue;
@@ -455,6 +911,12 @@ document.addEventListener('DOMContentLoaded', function () {
         delete fullConfig.boards[currentBoardId].updateIndicator;
         delete fullConfig.boards[currentBoardId].enableAgeBadge;
         delete fullConfig.boards[currentBoardId].enableUpdateIndicator;
+        delete fullConfig.boards[currentBoardId].enableAgeBadgePrefix;
+        delete fullConfig.boards[currentBoardId].ageBadgePrefix;
+        delete fullConfig.boards[currentBoardId].enableWipLanes;
+        delete fullConfig.boards[currentBoardId].wipLanes;
+        delete fullConfig.boards[currentBoardId].sle;
+        delete fullConfig.boards[currentBoardId].totalWip;
       }
     } else {
       fullConfig.defaultConfig = cloneDefaultConfig();
