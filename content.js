@@ -13,191 +13,8 @@
 (function () {
   if (!window.location.href.includes('vtb.do')) return;
 
-  const DEFAULT_UPDATE_THRESHOLD_DAYS = 6;
-  const DEFAULT_UPDATE_INDICATOR = {
-    freshEmoji: '✅',
-    staleEmoji: '❌',
-  };
-
-  const defaultConfig = {
-    enableAgeBadge: true,
-    enableUpdateIndicator: true,
-    ageBands: [
-      { maxDays: 7, color: '#f9e79f' },
-      { maxDays: 30, color: '#f0ad4e' },
-      { maxDays: 90, color: '#e67e22' },
-      { maxDays: 9999, color: '#d9534f' },
-    ],
-    updateThresholdDays: DEFAULT_UPDATE_THRESHOLD_DAYS,
-    updateIndicator: { ...DEFAULT_UPDATE_INDICATOR },
-  };
-
-  const defaultStorage = { defaultConfig: defaultConfig, boards: {} };
-
   const boardIdMatch = window.location.href.match(/sysparm_board=([^&]+)/);
   const boardId = boardIdMatch ? boardIdMatch[1] : null;
-
-  function getConfig(callback) {
-    if (
-      typeof chrome !== 'undefined' &&
-      chrome.storage &&
-      chrome.storage.sync
-    ) {
-      try {
-        chrome.storage.sync.get(
-          { vtbEnhancerConfig: defaultStorage },
-          function (data) {
-            if (chrome.runtime.lastError) {
-              callback(defaultStorage);
-              return;
-            }
-          let cfg = data.vtbEnhancerConfig;
-          if (cfg && cfg.ageBands) {
-            cfg = { defaultConfig: cfg, boards: {} };
-          }
-
-          if (
-            typeof cfg.defaultConfig.updateThresholdDays !== 'number' ||
-            cfg.defaultConfig.updateThresholdDays < 0
-          ) {
-            cfg.defaultConfig.updateThresholdDays = DEFAULT_UPDATE_THRESHOLD_DAYS;
-          }
-
-          if (
-            !cfg.defaultConfig.updateIndicator ||
-            typeof cfg.defaultConfig.updateIndicator !== 'object'
-          ) {
-            cfg.defaultConfig.updateIndicator = { ...DEFAULT_UPDATE_INDICATOR };
-          } else {
-            cfg.defaultConfig.updateIndicator = {
-              freshEmoji:
-                typeof cfg.defaultConfig.updateIndicator.freshEmoji === 'string' &&
-                cfg.defaultConfig.updateIndicator.freshEmoji.trim()
-                  ? cfg.defaultConfig.updateIndicator.freshEmoji
-                  : DEFAULT_UPDATE_INDICATOR.freshEmoji,
-              staleEmoji:
-                typeof cfg.defaultConfig.updateIndicator.staleEmoji === 'string' &&
-                cfg.defaultConfig.updateIndicator.staleEmoji.trim()
-                  ? cfg.defaultConfig.updateIndicator.staleEmoji
-                  : DEFAULT_UPDATE_INDICATOR.staleEmoji,
-            };
-          }
-
-          if (typeof cfg.defaultConfig.enableAgeBadge !== 'boolean') {
-            cfg.defaultConfig.enableAgeBadge = true;
-          }
-          if (typeof cfg.defaultConfig.enableUpdateIndicator !== 'boolean') {
-            cfg.defaultConfig.enableUpdateIndicator = true;
-          }
-          if (typeof cfg.defaultConfig.enableAgeBadgePrefix !== 'boolean') {
-            cfg.defaultConfig.enableAgeBadgePrefix = false;
-          }
-          if (typeof cfg.defaultConfig.ageBadgePrefix !== 'string') {
-            cfg.defaultConfig.ageBadgePrefix = '';
-          }
-
-          if (!cfg.boards || typeof cfg.boards !== 'object') {
-            cfg.boards = {};
-          }
-
-          Object.keys(cfg.boards).forEach((key) => {
-            const boardCfg = cfg.boards[key];
-            if (!boardCfg || typeof boardCfg !== 'object') return;
-            if (typeof boardCfg.updateThresholdDays !== 'number') {
-              boardCfg.updateThresholdDays = cfg.defaultConfig.updateThresholdDays;
-            }
-
-            if (typeof boardCfg.enableAgeBadge !== 'boolean') {
-              boardCfg.enableAgeBadge = cfg.defaultConfig.enableAgeBadge;
-            }
-
-            if (typeof boardCfg.enableUpdateIndicator !== 'boolean') {
-              boardCfg.enableUpdateIndicator = cfg.defaultConfig.enableUpdateIndicator;
-            }
-
-            if (typeof boardCfg.enableAgeBadgePrefix !== 'boolean') {
-              boardCfg.enableAgeBadgePrefix = cfg.defaultConfig.enableAgeBadgePrefix;
-            }
-            if (typeof boardCfg.ageBadgePrefix !== 'string') {
-              boardCfg.ageBadgePrefix = cfg.defaultConfig.ageBadgePrefix;
-            }
-
-            if (!boardCfg.updateIndicator || typeof boardCfg.updateIndicator !== 'object') {
-              boardCfg.updateIndicator = { ...cfg.defaultConfig.updateIndicator };
-            } else {
-              boardCfg.updateIndicator = {
-                freshEmoji:
-                  typeof boardCfg.updateIndicator.freshEmoji === 'string' &&
-                  boardCfg.updateIndicator.freshEmoji.trim()
-                    ? boardCfg.updateIndicator.freshEmoji
-                    : cfg.defaultConfig.updateIndicator.freshEmoji,
-                staleEmoji:
-                  typeof boardCfg.updateIndicator.staleEmoji === 'string' &&
-                  boardCfg.updateIndicator.staleEmoji.trim()
-                    ? boardCfg.updateIndicator.staleEmoji
-                    : cfg.defaultConfig.updateIndicator.staleEmoji,
-              };
-            }
-
-            if (typeof boardCfg.enableWipLanes !== 'boolean') {
-              boardCfg.enableWipLanes = Array.isArray(boardCfg.wipLanes) && boardCfg.wipLanes.length > 0;
-            }
-            if (!boardCfg.totalWip || typeof boardCfg.totalWip !== 'object') {
-              boardCfg.totalWip = { enabled: false, lanes: [] };
-            } else {
-              if (typeof boardCfg.totalWip.enabled !== 'boolean') boardCfg.totalWip.enabled = false;
-              if (!Array.isArray(boardCfg.totalWip.lanes)) boardCfg.totalWip.lanes = [];
-            }
-            if (!Array.isArray(boardCfg.wipLanes)) {
-              boardCfg.wipLanes = [];
-            }
-            if (!Array.isArray(boardCfg.lanes)) {
-              boardCfg.lanes = [];
-            }
-            if (!boardCfg.sle || typeof boardCfg.sle !== 'object') {
-              boardCfg.sle = { enabled: true, days: 0, approachingDays: 3, showSummary: true, showBadgeEmojis: true, showBadgeBorder: true, approachingEmoji: '⚠️', breachedEmoji: '🔴' };
-            } else {
-              if (typeof boardCfg.sle.enabled !== 'boolean') boardCfg.sle.enabled = true;
-              if (typeof boardCfg.sle.days !== 'number' || boardCfg.sle.days < 0) boardCfg.sle.days = 0;
-              if (typeof boardCfg.sle.approachingDays !== 'number' || boardCfg.sle.approachingDays < 0) boardCfg.sle.approachingDays = 3;
-              if (typeof boardCfg.sle.showSummary !== 'boolean') boardCfg.sle.showSummary = true;
-              const legacyEscalation = typeof boardCfg.sle.showBadgeEscalation === 'boolean' ? boardCfg.sle.showBadgeEscalation : true;
-              if (typeof boardCfg.sle.showBadgeEmojis !== 'boolean') boardCfg.sle.showBadgeEmojis = legacyEscalation;
-              if (typeof boardCfg.sle.showBadgeBorder !== 'boolean') boardCfg.sle.showBadgeBorder = legacyEscalation;
-              if (!boardCfg.sle.approachingEmoji || typeof boardCfg.sle.approachingEmoji !== 'string') boardCfg.sle.approachingEmoji = '⚠️';
-              if (!boardCfg.sle.breachedEmoji || typeof boardCfg.sle.breachedEmoji !== 'string') boardCfg.sle.breachedEmoji = '🔴';
-            }
-          });
-          callback(cfg);
-        }
-      );
-      } catch (_) {
-        callback(defaultStorage);
-      }
-    } else {
-      callback(defaultStorage);
-    }
-  }
-
-  function saveConfig(cfg, callback) {
-    if (
-      typeof chrome !== 'undefined' &&
-      chrome.storage &&
-      chrome.storage.sync
-    ) {
-      try {
-        chrome.storage.sync.set({ vtbEnhancerConfig: cfg }, () => {
-          if (chrome.runtime.lastError) return;
-          if (callback) callback();
-        });
-      } catch (_) {
-        // Extension context invalidated (e.g. reloaded during development) — ignore.
-      }
-    } else {
-      localStorage.setItem('vtbEnhancerConfig', JSON.stringify(cfg));
-      if (callback) callback();
-    }
-  }
 
   // CSS selectors tried in order when searching for a lane/column title element.
   // ServiceNow VTB renders lanes as columns; the title is in a header child element.
@@ -338,7 +155,7 @@
     const discoveredLanes = discoverLanes();
     if (!cfg.boards[boardId]) {
       cfg.boards[boardId] = { name, lanes: discoveredLanes };
-      saveConfig(cfg);
+      VTBShared.saveConfig(cfg);
     } else {
       let changed = false;
       if (cfg.boards[boardId].name !== name) {
@@ -349,70 +166,13 @@
         cfg.boards[boardId].lanes = discoveredLanes;
         changed = true;
       }
-      if (changed) saveConfig(cfg);
+      if (changed) VTBShared.saveConfig(cfg);
     }
   }
 
   // Load config then run the main logic.
-  getConfig(function (fullConfig) {
-    const boardConfig = boardId ? fullConfig.boards[boardId] : null;
-    const boardIndicator =
-      (boardConfig && boardConfig.updateIndicator) ||
-      fullConfig.defaultConfig.updateIndicator ||
-      DEFAULT_UPDATE_INDICATOR;
-    const normalizedIndicator = {
-      freshEmoji:
-        typeof boardIndicator.freshEmoji === 'string' &&
-        boardIndicator.freshEmoji.trim()
-          ? boardIndicator.freshEmoji
-          : DEFAULT_UPDATE_INDICATOR.freshEmoji,
-      staleEmoji:
-        typeof boardIndicator.staleEmoji === 'string' &&
-        boardIndicator.staleEmoji.trim()
-          ? boardIndicator.staleEmoji
-          : DEFAULT_UPDATE_INDICATOR.staleEmoji,
-    };
-
-    const enableAgeBadge =
-      boardConfig && typeof boardConfig.enableAgeBadge === 'boolean'
-        ? boardConfig.enableAgeBadge
-        : fullConfig.defaultConfig.enableAgeBadge !== false;
-    const enableUpdateIndicator =
-      boardConfig && typeof boardConfig.enableUpdateIndicator === 'boolean'
-        ? boardConfig.enableUpdateIndicator
-        : fullConfig.defaultConfig.enableUpdateIndicator !== false;
-
-    const config = {
-      ageBands:
-        boardConfig && boardConfig.ageBands
-          ? boardConfig.ageBands
-          : fullConfig.defaultConfig.ageBands,
-      updateThresholdDays:
-        boardConfig && typeof boardConfig.updateThresholdDays === 'number'
-          ? boardConfig.updateThresholdDays
-          : fullConfig.defaultConfig.updateThresholdDays || DEFAULT_UPDATE_THRESHOLD_DAYS,
-      updateIndicator: normalizedIndicator,
-      enableAgeBadge,
-      enableUpdateIndicator,
-      enableAgeBadgePrefix:
-        boardConfig && typeof boardConfig.enableAgeBadgePrefix === 'boolean'
-          ? boardConfig.enableAgeBadgePrefix
-          : fullConfig.defaultConfig.enableAgeBadgePrefix === true,
-      ageBadgePrefix:
-        boardConfig && typeof boardConfig.ageBadgePrefix === 'string'
-          ? boardConfig.ageBadgePrefix
-          : fullConfig.defaultConfig.ageBadgePrefix || '',
-      // wipLanes: only applied when enableWipLanes is true; otherwise empty array = show on all cards.
-      wipLanes: (boardConfig && boardConfig.enableWipLanes === true && Array.isArray(boardConfig.wipLanes))
-        ? boardConfig.wipLanes
-        : [],
-      sle: boardConfig && boardConfig.sle
-        ? boardConfig.sle
-        : { enabled: true, days: 0, approachingDays: 3, showSummary: true, showBadgeEmojis: true, showBadgeBorder: true, approachingEmoji: '⚠️', breachedEmoji: '🔴' },
-      totalWip: boardConfig && boardConfig.totalWip
-        ? boardConfig.totalWip
-        : { enabled: false, lanes: [] },
-    };
+  VTBShared.loadConfig(function (fullConfig) {
+    const config = VTBShared.resolveEffectiveConfig(fullConfig, boardId);
     // True when the summary bar has something to show regardless of badge/indicator toggles.
     const anySummaryActive =
       (config.sle && config.sle.enabled !== false && config.sle.days > 0 && config.sle.showSummary !== false) ||
@@ -562,15 +322,15 @@
     }
 
     function getIndicatorEmojis() {
-      const indicator = config.updateIndicator || DEFAULT_UPDATE_INDICATOR;
+      const indicator = config.updateIndicator || VTBShared.DEFAULT_UPDATE_INDICATOR;
       const freshEmoji =
         indicator && typeof indicator.freshEmoji === 'string' && indicator.freshEmoji
           ? indicator.freshEmoji
-          : DEFAULT_UPDATE_INDICATOR.freshEmoji;
+          : VTBShared.DEFAULT_UPDATE_INDICATOR.freshEmoji;
       const staleEmoji =
         indicator && typeof indicator.staleEmoji === 'string' && indicator.staleEmoji
           ? indicator.staleEmoji
-          : DEFAULT_UPDATE_INDICATOR.staleEmoji;
+          : VTBShared.DEFAULT_UPDATE_INDICATOR.staleEmoji;
       return { freshEmoji, staleEmoji };
     }
 
@@ -632,7 +392,7 @@
       const threshold =
         typeof config.updateThresholdDays === 'number'
           ? config.updateThresholdDays
-          : DEFAULT_UPDATE_THRESHOLD_DAYS;
+          : VTBShared.DEFAULT_UPDATE_THRESHOLD_DAYS;
       const { freshEmoji, staleEmoji } = getIndicatorEmojis();
       const isStale = daysSinceUpdate > threshold;
       const emoji = isStale ? staleEmoji : freshEmoji;

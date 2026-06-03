@@ -1,39 +1,4 @@
 document.addEventListener('DOMContentLoaded', function () {
-  const DEFAULT_UPDATE_THRESHOLD_DAYS = 6;
-  const DEFAULT_UPDATE_INDICATOR = {
-    freshEmoji: '✅',
-    staleEmoji: '❌',
-  };
-
-  const BASE_DEFAULT_CONFIG = {
-    enableAgeBadge: true,
-    enableUpdateIndicator: true,
-    enableAgeBadgePrefix: false,
-    ageBadgePrefix: '',
-    ageBands: [
-      { maxDays: 7, color: '#f9e79f' },
-      { maxDays: 30, color: '#f0ad4e' },
-      { maxDays: 90, color: '#e67e22' },
-      { maxDays: 9999, color: '#d9534f' },
-    ],
-    updateThresholdDays: DEFAULT_UPDATE_THRESHOLD_DAYS,
-    updateIndicator: { ...DEFAULT_UPDATE_INDICATOR },
-  };
-
-  function cloneDefaultConfig() {
-    return {
-      enableAgeBadge: true,
-      enableUpdateIndicator: true,
-      enableAgeBadgePrefix: false,
-      ageBadgePrefix: '',
-      ageBands: BASE_DEFAULT_CONFIG.ageBands.map((b) => ({ ...b })),
-      updateThresholdDays: BASE_DEFAULT_CONFIG.updateThresholdDays,
-      updateIndicator: { ...BASE_DEFAULT_CONFIG.updateIndicator },
-    };
-  }
-
-  const defaultStorage = { defaultConfig: cloneDefaultConfig(), boards: {} };
-
   const statusDiv = document.getElementById('status');
   const tableBody = document.querySelector('#ageBandsTable tbody');
   const boardSelect = document.getElementById('boardSelect');
@@ -75,175 +40,6 @@ document.addEventListener('DOMContentLoaded', function () {
 
   let fullConfig = null;
   let currentBoardId = null; // null means default config
-
-  // Load config from chrome.storage.sync or fallback to defaults.
-  function loadConfig(callback) {
-    if (
-      typeof chrome !== 'undefined' &&
-      chrome.storage &&
-      chrome.storage.sync
-    ) {
-      chrome.storage.sync.get(
-        { vtbEnhancerConfig: defaultStorage },
-        function (data) {
-          let cfg = data.vtbEnhancerConfig;
-          // Migrate old format { ageBands: [...] }
-          if (cfg && cfg.ageBands) {
-            cfg = { defaultConfig: cfg, boards: {} };
-          }
-          callback(normalizeConfigStructure(cfg));
-        }
-      );
-    } else {
-      callback(normalizeConfigStructure(defaultStorage));
-    }
-  }
-
-  // Save configuration using chrome.storage.sync.
-  function saveConfig(config, callback) {
-    if (
-      typeof chrome !== 'undefined' &&
-      chrome.storage &&
-      chrome.storage.sync
-    ) {
-      chrome.storage.sync.set({ vtbEnhancerConfig: config }, function () {
-        if (callback) callback();
-      });
-    } else {
-      localStorage.setItem('vtbEnhancerConfig', JSON.stringify(config));
-      if (callback) callback();
-    }
-  }
-
-  function normalizeConfigStructure(config) {
-    let cfg = config;
-    if (!cfg || typeof cfg !== 'object') {
-      cfg = { defaultConfig: cloneDefaultConfig(), boards: {} };
-    }
-
-    if (!cfg.defaultConfig || typeof cfg.defaultConfig !== 'object') {
-      cfg.defaultConfig = cloneDefaultConfig();
-    }
-
-    if (!Array.isArray(cfg.defaultConfig.ageBands)) {
-      cfg.defaultConfig.ageBands = BASE_DEFAULT_CONFIG.ageBands.map((b) => ({ ...b }));
-    }
-
-    if (
-      typeof cfg.defaultConfig.updateThresholdDays !== 'number' ||
-      cfg.defaultConfig.updateThresholdDays < 0
-    ) {
-      cfg.defaultConfig.updateThresholdDays = DEFAULT_UPDATE_THRESHOLD_DAYS;
-    }
-
-    if (
-      !cfg.defaultConfig.updateIndicator ||
-      typeof cfg.defaultConfig.updateIndicator !== 'object'
-    ) {
-      cfg.defaultConfig.updateIndicator = { ...DEFAULT_UPDATE_INDICATOR };
-    } else {
-      cfg.defaultConfig.updateIndicator = normalizeIndicator(
-        cfg.defaultConfig.updateIndicator,
-        DEFAULT_UPDATE_INDICATOR
-      );
-    }
-
-    cfg.defaultConfig.enableAgeBadge =
-      typeof cfg.defaultConfig.enableAgeBadge === 'boolean'
-        ? cfg.defaultConfig.enableAgeBadge
-        : true;
-    cfg.defaultConfig.enableUpdateIndicator =
-      typeof cfg.defaultConfig.enableUpdateIndicator === 'boolean'
-        ? cfg.defaultConfig.enableUpdateIndicator
-        : true;
-    cfg.defaultConfig.enableAgeBadgePrefix =
-      typeof cfg.defaultConfig.enableAgeBadgePrefix === 'boolean'
-        ? cfg.defaultConfig.enableAgeBadgePrefix
-        : false;
-    cfg.defaultConfig.ageBadgePrefix =
-      typeof cfg.defaultConfig.ageBadgePrefix === 'string'
-        ? cfg.defaultConfig.ageBadgePrefix
-        : '';
-
-    if (!cfg.boards || typeof cfg.boards !== 'object') {
-      cfg.boards = {};
-    }
-
-    Object.keys(cfg.boards).forEach((boardId) => {
-      let boardCfg = cfg.boards[boardId];
-      if (!boardCfg || typeof boardCfg !== 'object') {
-        cfg.boards[boardId] = { name: typeof boardCfg === 'string' ? boardCfg : boardId };
-        boardCfg = cfg.boards[boardId];
-      } else if (!boardCfg.name) {
-        boardCfg.name = boardId;
-      }
-      boardCfg.updateIndicator = normalizeIndicator(
-        boardCfg.updateIndicator,
-        cfg.defaultConfig.updateIndicator
-      );
-
-      boardCfg.enableAgeBadge =
-        typeof boardCfg.enableAgeBadge === 'boolean'
-          ? boardCfg.enableAgeBadge
-          : cfg.defaultConfig.enableAgeBadge;
-      boardCfg.enableUpdateIndicator =
-        typeof boardCfg.enableUpdateIndicator === 'boolean'
-          ? boardCfg.enableUpdateIndicator
-          : cfg.defaultConfig.enableUpdateIndicator;
-      boardCfg.enableAgeBadgePrefix =
-        typeof boardCfg.enableAgeBadgePrefix === 'boolean'
-          ? boardCfg.enableAgeBadgePrefix
-          : cfg.defaultConfig.enableAgeBadgePrefix;
-      boardCfg.ageBadgePrefix =
-        typeof boardCfg.ageBadgePrefix === 'string'
-          ? boardCfg.ageBadgePrefix
-          : cfg.defaultConfig.ageBadgePrefix;
-
-      boardCfg.enableWipLanes =
-        typeof boardCfg.enableWipLanes === 'boolean'
-          ? boardCfg.enableWipLanes
-          : Array.isArray(boardCfg.wipLanes) && boardCfg.wipLanes.length > 0;
-
-      if (!boardCfg.totalWip || typeof boardCfg.totalWip !== 'object') {
-        boardCfg.totalWip = { enabled: false, lanes: [] };
-      } else {
-        if (typeof boardCfg.totalWip.enabled !== 'boolean') boardCfg.totalWip.enabled = false;
-        if (!Array.isArray(boardCfg.totalWip.lanes)) boardCfg.totalWip.lanes = [];
-      }
-
-      if (!boardCfg.sle || typeof boardCfg.sle !== 'object') {
-        boardCfg.sle = { enabled: true, days: 0, approachingDays: 3, showSummary: true, showBadgeEmojis: true, showBadgeBorder: true, approachingEmoji: '⚠️', breachedEmoji: '🔴' };
-      } else {
-        if (typeof boardCfg.sle.enabled !== 'boolean') boardCfg.sle.enabled = true;
-        if (typeof boardCfg.sle.days !== 'number' || boardCfg.sle.days < 0) boardCfg.sle.days = 0;
-        if (typeof boardCfg.sle.approachingDays !== 'number' || boardCfg.sle.approachingDays < 0) boardCfg.sle.approachingDays = 3;
-        if (typeof boardCfg.sle.showSummary !== 'boolean') boardCfg.sle.showSummary = true;
-        const legacyEscalation = typeof boardCfg.sle.showBadgeEscalation === 'boolean' ? boardCfg.sle.showBadgeEscalation : true;
-        if (typeof boardCfg.sle.showBadgeEmojis !== 'boolean') boardCfg.sle.showBadgeEmojis = legacyEscalation;
-        if (typeof boardCfg.sle.showBadgeBorder !== 'boolean') boardCfg.sle.showBadgeBorder = legacyEscalation;
-        if (!boardCfg.sle.approachingEmoji || typeof boardCfg.sle.approachingEmoji !== 'string') boardCfg.sle.approachingEmoji = '⚠️';
-        if (!boardCfg.sle.breachedEmoji || typeof boardCfg.sle.breachedEmoji !== 'string') boardCfg.sle.breachedEmoji = '🔴';
-      }
-    });
-
-    return cfg;
-  }
-
-  function normalizeIndicator(source, fallback) {
-    const base = fallback || DEFAULT_UPDATE_INDICATOR;
-    if (!source || typeof source !== 'object') {
-      return { ...base };
-    }
-    const fresh =
-      typeof source.freshEmoji === 'string' && source.freshEmoji.trim()
-        ? source.freshEmoji
-        : base.freshEmoji;
-    const stale =
-      typeof source.staleEmoji === 'string' && source.staleEmoji.trim()
-        ? source.staleEmoji
-        : base.staleEmoji;
-    return { freshEmoji: fresh, staleEmoji: stale };
-  }
 
   function renderWipLanes(boardId) {
     if (!boardId) {
@@ -438,14 +234,6 @@ document.addEventListener('DOMContentLoaded', function () {
     updatePreview();
   }
 
-  function isAgeBadgeEnabled() {
-    return ageBadgeToggle.checked;
-  }
-
-  function isUpdateIndicatorEnabled() {
-    return updateIndicatorToggle.checked;
-  }
-
   function getPreviewBandColor() {
     const bands = getBandsFromTable();
     if (!bands || bands.length === 0) return '#d9534f';
@@ -471,8 +259,8 @@ document.addEventListener('DOMContentLoaded', function () {
 
     if (updateOn && previewFresh && previewStale) {
       const threshold = getThresholdFromInput();
-      const fresh = freshEmojiInput.value.trim() || BASE_DEFAULT_CONFIG.updateIndicator.freshEmoji;
-      const stale = staleEmojiInput.value.trim() || BASE_DEFAULT_CONFIG.updateIndicator.staleEmoji;
+      const fresh = freshEmojiInput.value.trim() || VTBShared.DEFAULT_UPDATE_INDICATOR.freshEmoji;
+      const stale = staleEmojiInput.value.trim() || VTBShared.DEFAULT_UPDATE_INDICATOR.staleEmoji;
       const freshDays = Math.max(0, Math.round(threshold - 1));
       const staleDays = Math.max(0, Math.round(threshold + 1));
       previewFresh.textContent = `${freshDays}d ago ${fresh}`;
@@ -483,7 +271,7 @@ document.addEventListener('DOMContentLoaded', function () {
     }
   }
 
-  // Render the table and threshold inputs based directly on a provided configuration object.
+  // Render the form inputs from a provided effective config object.
   function renderConfigToUI(config) {
     const ageOn = config.enableAgeBadge !== false;
     const updateOn = config.enableUpdateIndicator !== false;
@@ -493,10 +281,10 @@ document.addEventListener('DOMContentLoaded', function () {
     const thresholdValue =
       typeof config.updateThresholdDays === 'number' && config.updateThresholdDays >= 0
         ? config.updateThresholdDays
-        : BASE_DEFAULT_CONFIG.updateThresholdDays;
+        : VTBShared.DEFAULT_UPDATE_THRESHOLD_DAYS;
     thresholdInput.value = thresholdValue;
 
-    const indicator = normalizeIndicator(config.updateIndicator, BASE_DEFAULT_CONFIG.updateIndicator);
+    const indicator = VTBShared.normalizeIndicator(config.updateIndicator, VTBShared.DEFAULT_UPDATE_INDICATOR);
     freshEmojiInput.value = indicator.freshEmoji;
     staleEmojiInput.value = indicator.staleEmoji;
 
@@ -609,14 +397,14 @@ document.addEventListener('DOMContentLoaded', function () {
   function getThresholdFromInput() {
     let value = parseFloat(thresholdInput.value);
     if (isNaN(value) || value < 0) {
-      value = BASE_DEFAULT_CONFIG.updateThresholdDays;
+      value = VTBShared.DEFAULT_UPDATE_THRESHOLD_DAYS;
     }
     return value;
   }
 
   function getIndicatorFromInputs() {
-    const fresh = freshEmojiInput.value.trim() || BASE_DEFAULT_CONFIG.updateIndicator.freshEmoji;
-    const stale = staleEmojiInput.value.trim() || BASE_DEFAULT_CONFIG.updateIndicator.staleEmoji;
+    const fresh = freshEmojiInput.value.trim() || VTBShared.DEFAULT_UPDATE_INDICATOR.freshEmoji;
+    const stale = staleEmojiInput.value.trim() || VTBShared.DEFAULT_UPDATE_INDICATOR.staleEmoji;
     return { freshEmoji: fresh, staleEmoji: stale };
   }
 
@@ -635,53 +423,6 @@ document.addEventListener('DOMContentLoaded', function () {
     boardSelect.value = currentBoardId || '';
   }
 
-  function getCurrentConfig() {
-    if (!currentBoardId) return fullConfig.defaultConfig;
-    const board = fullConfig.boards[currentBoardId];
-    if (board) {
-      const ageBands = board.ageBands
-        ? board.ageBands.map((b) => ({ ...b }))
-        : fullConfig.defaultConfig.ageBands.map((b) => ({ ...b }));
-      const threshold =
-        typeof board.updateThresholdDays === 'number' && board.updateThresholdDays >= 0
-          ? board.updateThresholdDays
-          : fullConfig.defaultConfig.updateThresholdDays;
-      return {
-        enableAgeBadge:
-          typeof board.enableAgeBadge === 'boolean'
-            ? board.enableAgeBadge
-            : fullConfig.defaultConfig.enableAgeBadge,
-        enableUpdateIndicator:
-          typeof board.enableUpdateIndicator === 'boolean'
-            ? board.enableUpdateIndicator
-            : fullConfig.defaultConfig.enableUpdateIndicator,
-        enableAgeBadgePrefix:
-          typeof board.enableAgeBadgePrefix === 'boolean'
-            ? board.enableAgeBadgePrefix
-            : fullConfig.defaultConfig.enableAgeBadgePrefix,
-        ageBadgePrefix:
-          typeof board.ageBadgePrefix === 'string'
-            ? board.ageBadgePrefix
-            : fullConfig.defaultConfig.ageBadgePrefix,
-        ageBands,
-        updateThresholdDays: threshold,
-        updateIndicator: normalizeIndicator(
-          board.updateIndicator,
-          fullConfig.defaultConfig.updateIndicator
-        ),
-      };
-    }
-    return {
-      enableAgeBadge: fullConfig.defaultConfig.enableAgeBadge,
-      enableUpdateIndicator: fullConfig.defaultConfig.enableUpdateIndicator,
-      enableAgeBadgePrefix: fullConfig.defaultConfig.enableAgeBadgePrefix,
-      ageBadgePrefix: fullConfig.defaultConfig.ageBadgePrefix,
-      ageBands: fullConfig.defaultConfig.ageBands.map((b) => ({ ...b })),
-      updateThresholdDays: fullConfig.defaultConfig.updateThresholdDays,
-      updateIndicator: { ...fullConfig.defaultConfig.updateIndicator },
-    };
-  }
-
   // --- Export / Import ---
 
   function updateExportImportVisibility() {
@@ -690,113 +431,7 @@ document.addEventListener('DOMContentLoaded', function () {
     importBtn.style.display = show ? '' : 'none';
   }
 
-  function exportBoardConfig() {
-    if (!currentBoardId) return;
-    const board = fullConfig.boards[currentBoardId] || {};
-    const payload = {
-      vtbEnhancerBoardConfig: {
-        enableAgeBadge: typeof board.enableAgeBadge === 'boolean'
-          ? board.enableAgeBadge
-          : fullConfig.defaultConfig.enableAgeBadge,
-        enableUpdateIndicator: typeof board.enableUpdateIndicator === 'boolean'
-          ? board.enableUpdateIndicator
-          : fullConfig.defaultConfig.enableUpdateIndicator,
-        enableAgeBadgePrefix: typeof board.enableAgeBadgePrefix === 'boolean'
-          ? board.enableAgeBadgePrefix
-          : fullConfig.defaultConfig.enableAgeBadgePrefix,
-        ageBadgePrefix: typeof board.ageBadgePrefix === 'string'
-          ? board.ageBadgePrefix
-          : fullConfig.defaultConfig.ageBadgePrefix,
-        ageBands: (board.ageBands || fullConfig.defaultConfig.ageBands).map((b) => ({ ...b })),
-        updateThresholdDays: typeof board.updateThresholdDays === 'number'
-          ? board.updateThresholdDays
-          : fullConfig.defaultConfig.updateThresholdDays,
-        updateIndicator: { ...normalizeIndicator(board.updateIndicator, fullConfig.defaultConfig.updateIndicator) },
-        enableWipLanes: typeof board.enableWipLanes === 'boolean' ? board.enableWipLanes : false,
-        wipLanes: Array.isArray(board.wipLanes) ? [...board.wipLanes] : [],
-        sle: board.sle && typeof board.sle === 'object'
-          ? { ...board.sle }
-          : { enabled: true, days: 0, approachingDays: 3, showSummary: true, showBadgeEmojis: true, showBadgeBorder: true, approachingEmoji: '⚠️', breachedEmoji: '🔴' },
-        totalWip: board.totalWip && typeof board.totalWip === 'object'
-          ? { enabled: board.totalWip.enabled === true, lanes: Array.isArray(board.totalWip.lanes) ? [...board.totalWip.lanes] : [] }
-          : { enabled: false, lanes: [] },
-      },
-    };
-    const json = JSON.stringify(payload, null, 2);
-    const blob = new Blob([json], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    const boardName = (board.name || currentBoardId).replace(/[^a-z0-9]/gi, '-').toLowerCase();
-    a.href = url;
-    a.download = `vtb-board-config-${boardName}.json`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  }
-
-  function applyImportedConfig(jsonStr) {
-    let parsed;
-    try {
-      parsed = JSON.parse(jsonStr);
-    } catch (_) {
-      return 'Invalid JSON — please check the pasted text and try again.';
-    }
-    const incoming = parsed && parsed.vtbEnhancerBoardConfig;
-    if (!incoming || typeof incoming !== 'object') {
-      return 'Unrecognised format — the JSON must contain a "vtbEnhancerBoardConfig" key.';
-    }
-    if (!currentBoardId) return 'No board selected.';
-
-    if (!fullConfig.boards[currentBoardId]) {
-      fullConfig.boards[currentBoardId] = { name: currentBoardId };
-    }
-    const target = fullConfig.boards[currentBoardId];
-
-    if (typeof incoming.enableAgeBadge === 'boolean') target.enableAgeBadge = incoming.enableAgeBadge;
-    if (typeof incoming.enableUpdateIndicator === 'boolean') target.enableUpdateIndicator = incoming.enableUpdateIndicator;
-    if (typeof incoming.enableAgeBadgePrefix === 'boolean') target.enableAgeBadgePrefix = incoming.enableAgeBadgePrefix;
-    if (typeof incoming.ageBadgePrefix === 'string') target.ageBadgePrefix = incoming.ageBadgePrefix;
-    if (typeof incoming.updateThresholdDays === 'number' && incoming.updateThresholdDays >= 0) {
-      target.updateThresholdDays = incoming.updateThresholdDays;
-    }
-    if (incoming.updateIndicator && typeof incoming.updateIndicator === 'object') {
-      target.updateIndicator = normalizeIndicator(incoming.updateIndicator, fullConfig.defaultConfig.updateIndicator);
-    }
-    if (Array.isArray(incoming.ageBands) && incoming.ageBands.length > 0) {
-      const bands = incoming.ageBands.filter(
-        (b) => b && typeof b.maxDays === 'number' && b.maxDays > 0 && typeof b.color === 'string'
-      );
-      if (bands.length > 0) target.ageBands = bands;
-    }
-    if (typeof incoming.enableWipLanes === 'boolean') target.enableWipLanes = incoming.enableWipLanes;
-    if (Array.isArray(incoming.wipLanes)) {
-      target.wipLanes = incoming.wipLanes.filter((l) => typeof l === 'string');
-    }
-    if (incoming.totalWip && typeof incoming.totalWip === 'object') {
-      target.totalWip = {
-        enabled: typeof incoming.totalWip.enabled === 'boolean' ? incoming.totalWip.enabled : false,
-        lanes: Array.isArray(incoming.totalWip.lanes) ? incoming.totalWip.lanes.filter((l) => typeof l === 'string') : [],
-      };
-    }
-    if (incoming.sle && typeof incoming.sle === 'object') {
-      target.sle = {
-        enabled: typeof incoming.sle.enabled === 'boolean' ? incoming.sle.enabled : true,
-        days: typeof incoming.sle.days === 'number' && incoming.sle.days >= 0 ? incoming.sle.days : 0,
-        approachingDays: typeof incoming.sle.approachingDays === 'number' && incoming.sle.approachingDays >= 0 ? incoming.sle.approachingDays : 3,
-        showSummary: typeof incoming.sle.showSummary === 'boolean' ? incoming.sle.showSummary : true,
-        showBadgeEmojis: typeof incoming.sle.showBadgeEmojis === 'boolean' ? incoming.sle.showBadgeEmojis : (typeof incoming.sle.showBadgeEscalation === 'boolean' ? incoming.sle.showBadgeEscalation : true),
-        showBadgeBorder: typeof incoming.sle.showBadgeBorder === 'boolean' ? incoming.sle.showBadgeBorder : (typeof incoming.sle.showBadgeEscalation === 'boolean' ? incoming.sle.showBadgeEscalation : true),
-        approachingEmoji: typeof incoming.sle.approachingEmoji === 'string' && incoming.sle.approachingEmoji.trim() ? incoming.sle.approachingEmoji : '⚠️',
-        breachedEmoji: typeof incoming.sle.breachedEmoji === 'string' && incoming.sle.breachedEmoji.trim() ? incoming.sle.breachedEmoji : '🔴',
-      };
-    }
-
-    renderConfigToUI(getCurrentConfig());
-    return null; // no error
-  }
-
-  exportBtn.addEventListener('click', exportBoardConfig);
+  exportBtn.addEventListener('click', () => VTBShared.exportBoardConfig(fullConfig, currentBoardId));
 
   importBtn.addEventListener('click', () => {
     importFileInput.value = '';
@@ -808,11 +443,13 @@ document.addEventListener('DOMContentLoaded', function () {
     if (!file) return;
     const reader = new FileReader();
     reader.onload = (e) => {
-      const err = applyImportedConfig(e.target.result);
-      if (err) {
-        statusDiv.textContent = err;
+      const { error, config } = VTBShared.importBoardConfig(e.target.result, fullConfig, currentBoardId);
+      if (error) {
+        statusDiv.textContent = error;
       } else {
-        saveConfig(fullConfig, () => {
+        fullConfig = config;
+        renderConfigToUI(VTBShared.resolveEffectiveConfig(fullConfig, currentBoardId));
+        VTBShared.saveConfig(fullConfig, () => {
           statusDiv.textContent = 'Settings imported and saved.';
           setTimeout(() => { statusDiv.textContent = ''; }, 3000);
         });
@@ -827,7 +464,7 @@ document.addEventListener('DOMContentLoaded', function () {
     currentBoardId = boardSelect.value || null;
     updateExportImportVisibility();
     updateSleVisibility();
-    renderConfigToUI(getCurrentConfig());
+    renderConfigToUI(VTBShared.resolveEffectiveConfig(fullConfig, currentBoardId));
   });
 
   ageBadgeToggle.addEventListener('change', toggleSettingsVisibility);
@@ -895,7 +532,7 @@ document.addEventListener('DOMContentLoaded', function () {
       fullConfig.defaultConfig.updateThresholdDays = thresholdValue;
       fullConfig.defaultConfig.updateIndicator = indicatorValue;
     }
-    saveConfig(fullConfig, function () {
+    VTBShared.saveConfig(fullConfig, function () {
       statusDiv.textContent = 'Configuration saved.';
       setTimeout(() => {
         statusDiv.textContent = '';
@@ -919,10 +556,10 @@ document.addEventListener('DOMContentLoaded', function () {
         delete fullConfig.boards[currentBoardId].totalWip;
       }
     } else {
-      fullConfig.defaultConfig = cloneDefaultConfig();
+      fullConfig.defaultConfig = VTBShared.cloneDefaultConfig();
     }
-    renderConfigToUI(getCurrentConfig());
-    saveConfig(fullConfig, function () {
+    renderConfigToUI(VTBShared.resolveEffectiveConfig(fullConfig, currentBoardId));
+    VTBShared.saveConfig(fullConfig, function () {
       statusDiv.textContent = 'Configuration reset to default.';
       setTimeout(() => {
         statusDiv.textContent = '';
@@ -930,10 +567,10 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   });
 
-  loadConfig(function (config) {
+  VTBShared.loadConfig(function (config) {
     fullConfig = config;
     populateBoardSelect();
-    renderConfigToUI(getCurrentConfig());
+    renderConfigToUI(VTBShared.resolveEffectiveConfig(fullConfig, currentBoardId));
     updatePreview();
   });
 });

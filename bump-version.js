@@ -17,7 +17,6 @@ function bumpManifest(path) {
 
 try {
   const version = bumpManifest('manifest.json');
-  bumpManifest('safari-extension/manifest.json');
   console.log(`Version bumped to ${version}`);
 } catch (error) {
   console.error('Error bumping version:', error);
