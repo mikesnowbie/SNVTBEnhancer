@@ -4,3 +4,7 @@
 
 # Local test harness — contains real board data, never commit
 test/
+
+.claude/
+.obsidian/
+docs/
