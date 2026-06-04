@@ -33,7 +33,7 @@
   function renderWipArea(data) {
     const el = document.getElementById('wipArea');
     el.className = '';
-    const label = data.wipAllLanes ? 'All lanes' : 'Configured WIP lanes';
+    const label = data.wipAllLanes ? 'All lanes' : 'in configured WIP lanes';
     let html =
       `<div class="wip-row">` +
       `<span class="wip-number">${data.wipTotal}</span>` +
