@@ -202,6 +202,13 @@
   VTBShared.loadConfig(function (fullConfig) {
     const config = VTBShared.resolveEffectiveConfig(fullConfig, boardId);
     let boardLoaded = false;
+    // Freshness counters accumulated as indicators are drawn (including virtual-scroll
+    // reveals). freshnessAccumStarted flips true on first trackFreshness call so the
+    // message handler knows whether to use accumulated counts or fall back to DOM scan.
+    let accumFreshCount = 0;
+    let accumStaleCount = 0;
+    let freshnessAccumStarted = false;
+    const cardFreshnessMap = new WeakMap();
     // True when the summary bar has something to show regardless of badge/indicator toggles.
     const anySummaryActive =
       (config.sle && config.sle.enabled !== false && config.sle.days > 0 && config.sle.showSummary !== false) ||
@@ -223,6 +230,17 @@
       });
       document.body.appendChild(div);
       setTimeout(() => div.remove(), 3000);
+    }
+
+    function trackFreshness(card, newState) {
+      freshnessAccumStarted = true;
+      const prev = cardFreshnessMap.get(card);
+      if (prev === newState) return;
+      if (prev === 'fresh') accumFreshCount--;
+      else if (prev === 'stale') accumStaleCount--;
+      if (newState === 'fresh') accumFreshCount++;
+      else if (newState === 'stale') accumStaleCount++;
+      cardFreshnessMap.set(card, newState);
     }
 
     const MS_PER_DAY = 1000 * 60 * 60 * 24;
@@ -439,6 +457,10 @@
 
     function applyUpdateIndicator(timeElement) {
       const state = computeUpdateIndicatorState(timeElement);
+      // Accumulate freshness counts as each indicator is drawn, so the popup can
+      // read up-to-date totals without rescanning the DOM on every query.
+      const card = timeElement.closest('.vtb-card-component-wrapper');
+      if (card) trackFreshness(card, state ? (state.isStale ? 'stale' : 'fresh') : null);
       const snTimeAgo = timeElement.closest('sn-time-ago');
       if (!snTimeAgo) return;
 
@@ -1080,10 +1102,10 @@
         let sleApproaching = 0;
         let sleBreached = 0;
 
-        // Pre-build lane assignments in one pass so the per-card loop avoids
-        // repeated ancestor walks and layout-forcing getBoundingClientRect calls.
+        // cardLaneMap is only needed for the DOM-scan freshness fallback used when
+        // enableUpdateIndicator is off and freshnessAccumStarted is still false.
         const cardLaneMap = new Map();
-        if (restrictFreshness) {
+        if (!freshnessAccumStarted && restrictFreshness) {
           cards.forEach(function (card) { cardLaneMap.set(card, findCardLane(card)); });
         }
 
@@ -1115,27 +1137,33 @@
             }
           }
 
-          const cardLane = restrictFreshness ? cardLaneMap.get(card) : null;
-          const countFreshness = !restrictFreshness || (cardLane && liveConfig.wipLanes.includes(cardLane));
-          if (countFreshness) {
-            const snTimeAgo = card.querySelector('sn-time-ago');
-            if (snTimeAgo) {
-              const timeEl =
-                snTimeAgo.querySelector('time[data-original-title]') ||
-                snTimeAgo.querySelector('time[title]') ||
-                snTimeAgo.querySelector('time');
-              if (timeEl) {
-                const ts = getTimestampString(timeEl);
-                const lastUpdated = parseServiceNowDateTime(ts);
-                if (lastUpdated) {
-                  const days = (Date.now() - lastUpdated.getTime()) / MS_PER_DAY;
-                  if (days > threshold) staleCount++;
-                  else freshCount++;
+          if (!freshnessAccumStarted) {
+            const cardLane = restrictFreshness ? cardLaneMap.get(card) : null;
+            const countFreshness = !restrictFreshness || (cardLane && liveConfig.wipLanes.includes(cardLane));
+            if (countFreshness) {
+              const snTimeAgo = card.querySelector('sn-time-ago');
+              if (snTimeAgo) {
+                const timeEl =
+                  snTimeAgo.querySelector('time[data-original-title]') ||
+                  snTimeAgo.querySelector('time[title]') ||
+                  snTimeAgo.querySelector('time');
+                if (timeEl) {
+                  const ts = getTimestampString(timeEl);
+                  const lastUpdated = parseServiceNowDateTime(ts);
+                  if (lastUpdated) {
+                    const days = (Date.now() - lastUpdated.getTime()) / MS_PER_DAY;
+                    if (days > threshold) staleCount++;
+                    else freshCount++;
+                  }
                 }
               }
             }
           }
         });
+        if (freshnessAccumStarted) {
+          freshCount = accumFreshCount;
+          staleCount = accumStaleCount;
+        }
 
         let wipTotal = cards.length;
         let wipAllLanes = true;
