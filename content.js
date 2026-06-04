@@ -13,10 +13,14 @@
 (function () {
   if (!window.location.href.includes('vtb.do')) return;
 
-  let _href = window.location.href;
-  try { _href = decodeURIComponent(_href); } catch (_) {}
-  const boardIdMatch = _href.match(/sysparm_board=([^&]+)/);
+  const boardIdMatch = window.location.pathname.includes('$vtb.do')
+    ? window.location.search.match(/[?&]sysparm_board=([^&]+)/)
+    : null;
   const boardId = boardIdMatch ? boardIdMatch[1] : null;
+
+  function escHtml(s) {
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
 
   // CSS selectors tried in order when searching for a lane/column title element.
   // ServiceNow VTB renders lanes as columns; the title is in a header child element.
@@ -768,8 +772,8 @@
       if (sleActive) {
         const showEmojis = sle.showBadgeEmojis !== false;
         const showBorder = sle.showBadgeBorder !== false;
-        const breachedSymbol = showEmojis ? (sle.breachedEmoji || '🔴') : '▲';
-        const approachingSymbol = showEmojis ? (sle.approachingEmoji || '⚠️') : '⚠';
+        const breachedSymbol = showEmojis ? escHtml(sle.breachedEmoji || '🔴') : '▲';
+        const approachingSymbol = showEmojis ? escHtml(sle.approachingEmoji || '⚠️') : '⚠';
         const breachedStyle = 'color:#c0392b;' +
           (showBorder ? ' outline:2px solid #c0392b; outline-offset:2px; border-radius:4px; padding:1px 6px;' : '');
         const approachingStyle = 'color:#e67e22;' +
@@ -1019,9 +1023,9 @@
 
     chrome.runtime.onMessage.addListener(function (message, _sender, sendResponse) {
       if (message.type !== 'VTB_POPUP_QUERY') return false;
-      // boardId is null in the outer navigation frame (ServiceNow encodes the inner
-      // URL as a path segment so sysparm_board= isn't parseable there). Only the
-      // actual $vtb.do iframe has a resolved boardId — let that frame respond.
+      // boardId is null in the shell frame because its pathname (/now/nav/...) does
+      // not contain a literal $vtb.do; only the actual $vtb.do iframe matches and
+      // gets a resolved boardId — let that frame respond.
       if (!boardId) return false;
 
       // Re-read config from storage so metrics always reflect the current settings,
