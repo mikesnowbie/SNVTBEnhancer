@@ -13,7 +13,9 @@
 (function () {
   if (!window.location.href.includes('vtb.do')) return;
 
-  const boardIdMatch = window.location.href.match(/sysparm_board=([^&]+)/);
+  let _href = window.location.href;
+  try { _href = decodeURIComponent(_href); } catch (_) {}
+  const boardIdMatch = _href.match(/sysparm_board=([^&]+)/);
   const boardId = boardIdMatch ? boardIdMatch[1] : null;
 
   // CSS selectors tried in order when searching for a lane/column title element.
@@ -1051,6 +1053,13 @@
         let sleApproaching = 0;
         let sleBreached = 0;
 
+        // Pre-build lane assignments in one pass so the per-card loop avoids
+        // repeated ancestor walks and layout-forcing getBoundingClientRect calls.
+        const cardLaneMap = new Map();
+        if (restrictFreshness) {
+          cards.forEach(function (card) { cardLaneMap.set(card, findCardLane(card)); });
+        }
+
         cards.forEach(function (card) {
           const state = findState(card);
 
@@ -1079,7 +1088,7 @@
             }
           }
 
-          const cardLane = restrictFreshness ? findCardLane(card) : null;
+          const cardLane = restrictFreshness ? cardLaneMap.get(card) : null;
           const countFreshness = !restrictFreshness || (cardLane && liveConfig.wipLanes.includes(cardLane));
           if (countFreshness) {
             const snTimeAgo = card.querySelector('sn-time-ago');
@@ -1114,9 +1123,9 @@
           wipAllLanes = false;
         }
 
-        const indicator = liveConfig.updateIndicator || VTBShared.DEFAULT_UPDATE_INDICATOR;
-        const freshEmoji = (indicator && indicator.freshEmoji) || VTBShared.DEFAULT_UPDATE_INDICATOR.freshEmoji;
-        const staleEmoji = (indicator && indicator.staleEmoji) || VTBShared.DEFAULT_UPDATE_INDICATOR.staleEmoji;
+        const { freshEmoji, staleEmoji } = VTBShared.normalizeIndicator(
+          liveConfig.updateIndicator, VTBShared.DEFAULT_UPDATE_INDICATOR
+        );
 
         sendResponse({
           boardId,
@@ -1130,7 +1139,7 @@
           sleBreached,
           wipTotal,
           wipAllLanes,
-          wipLanes: wipAllLanes ? [] : (totalWipCfg ? totalWipCfg.lanes : []),
+          wipLanes: wipAllLanes ? [] : totalWipCfg.lanes,
           sleEnabled: sleActive,
           sleDays: sle ? sle.days : 0,
           freshEmoji,

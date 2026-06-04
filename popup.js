@@ -1,10 +1,22 @@
 (function () {
-  // Update this URL once the Edge Add-ons Store listing is confirmed.
   const STORE_URL = 'https://microsoftedge.microsoft.com/addons/detail/servicenow-visual-task-bo/jmhhlihdkbdeemfdmehanpkbfkkahpdd';
+  const AREA_IDS = ['wipArea', 'ageArea', 'freshnessArea', 'sleArea'];
 
   let currentTab = null;
   let currentBoardId = null;
   let fullConfig = null;
+
+  function escHtml(s) {
+    return String(s)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  function safeCssColor(color) {
+    return /^#[0-9a-fA-F]{3,6}$/.test(String(color)) ? color : '#808080';
+  }
 
   function getBoardIdFromUrl(url) {
     if (!url || !url.includes('vtb.do')) return null;
@@ -22,12 +34,15 @@
     chrome.tabs.create({ url });
   }
 
+  // bandRangeLabel labels match the strict `age < maxDays` bucketing used in
+  // getBadgeColor and the message handler: first band is "< Nd", middle bands
+  // are "${prev}–${curr-1}d", last band is "≥ ${prev}d".
   function bandRangeLabel(index, bands) {
     const prev = index > 0 ? bands[index - 1].maxDays : 0;
     const curr = bands[index].maxDays;
-    if (curr >= 9999) return `> ${prev}d`;
-    if (prev === 0) return `≤ ${curr}d`;
-    return `${prev + 1}–${curr}d`;
+    if (curr >= 9999) return `≥ ${prev}d`;
+    if (prev === 0) return `< ${curr}d`;
+    return `${prev}–${curr - 1}d`;
   }
 
   function renderWipArea(data) {
@@ -40,7 +55,7 @@
       `<span class="wip-label">${label}</span>` +
       `</div>`;
     if (!data.wipAllLanes && data.wipLanes && data.wipLanes.length > 0) {
-      html += `<div class="wip-lanes">${data.wipLanes.join(' · ')}</div>`;
+      html += `<div class="wip-lanes">${data.wipLanes.map(escHtml).join(' · ')}</div>`;
     }
     el.innerHTML = html;
   }
@@ -53,7 +68,7 @@
       const zeroClass = band.count === 0 ? ' band-count-zero' : '';
       rows +=
         `<tr>` +
-        `<td><span class="band-swatch" style="background:${band.color}"></span></td>` +
+        `<td><span class="band-swatch" style="background:${safeCssColor(band.color)}"></span></td>` +
         `<td class="band-range">${bandRangeLabel(i, bands)}</td>` +
         `<td class="band-count${zeroClass}">${band.count}</td>` +
         `</tr>`;
@@ -83,10 +98,10 @@
     el.className = '';
     el.innerHTML =
       `<div class="stat-row">` +
-      `<span>${data.freshEmoji} Fresh</span><strong>${data.freshCount}</strong>` +
+      `<span>${escHtml(data.freshEmoji)} Fresh</span><strong>${data.freshCount}</strong>` +
       `</div>` +
       `<div class="stat-row">` +
-      `<span>${data.staleEmoji} Stale</span><strong>${data.staleCount}</strong>` +
+      `<span>${escHtml(data.staleEmoji)} Stale</span><strong>${data.staleCount}</strong>` +
       `</div>` +
       `<div class="stat-hint">Stale after ${data.updateThresholdDays} days without update</div>`;
   }
@@ -108,10 +123,10 @@
       `<span>SLE Target</span><strong>${data.sleDays}d</strong>` +
       `</div>` +
       `<div class="stat-row">` +
-      `<span>${data.approachingEmoji} Approaching</span><strong>${data.sleApproaching}</strong>` +
+      `<span>${escHtml(data.approachingEmoji)} Approaching</span><strong>${data.sleApproaching}</strong>` +
       `</div>` +
       `<div class="stat-row">` +
-      `<span>${data.breachedEmoji} Breached</span><strong>${data.sleBreached}</strong>` +
+      `<span>${escHtml(data.breachedEmoji)} Breached</span><strong>${data.sleBreached}</strong>` +
       `</div>`;
   }
 
@@ -124,11 +139,20 @@
   }
 
   function setAreasError(msg) {
-    ['wipArea', 'ageArea', 'freshnessArea', 'sleArea'].forEach(function (id) {
+    AREA_IDS.forEach(function (id) {
       const el = document.getElementById(id);
       el.className = 'error-msg';
       el.textContent = msg;
     });
+  }
+
+  function setAreasLoading() {
+    AREA_IDS.forEach(function (id) {
+      const el = document.getElementById(id);
+      el.className = 'state-msg';
+      el.textContent = 'Loading…';
+    });
+    document.getElementById('exportSection').style.display = 'none';
   }
 
   function queryContentScript() {
@@ -148,15 +172,6 @@
         renderDashboard(response);
       });
     });
-  }
-
-  function setAreasLoading() {
-    ['wipArea', 'ageArea', 'freshnessArea', 'sleArea'].forEach(function (id) {
-      const el = document.getElementById(id);
-      el.className = 'state-msg';
-      el.textContent = 'Loading…';
-    });
-    document.getElementById('exportSection').style.display = 'none';
   }
 
   document.addEventListener('DOMContentLoaded', function () {
@@ -197,21 +212,13 @@
       if (!isVtbPage) {
         document.getElementById('nonVtbNotice').style.display = '';
         document.getElementById('boardNameDisplay').textContent = 'Not on a VTB page';
-        VTBShared.loadConfig(function (cfg) { fullConfig = cfg; });
         return;
       }
 
       document.getElementById('thisBoardSettingsBtn').disabled = false;
       document.getElementById('refreshBtn').style.display = '';
       document.getElementById('dashboardArea').style.display = '';
-
-      VTBShared.loadConfig(function (cfg) {
-        fullConfig = cfg;
-        const board = cfg.boards[currentBoardId];
-        document.getElementById('boardNameDisplay').textContent =
-          board ? board.name : currentBoardId;
-        queryContentScript();
-      });
+      queryContentScript();
     });
   });
 })();
