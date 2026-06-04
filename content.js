@@ -1009,6 +1009,10 @@
 
     chrome.runtime.onMessage.addListener(function (message, _sender, sendResponse) {
       if (message.type !== 'VTB_POPUP_QUERY') return false;
+      // boardId is null in the outer navigation frame (ServiceNow encodes the inner
+      // URL as a path segment so sysparm_board= isn't parseable there). Only the
+      // actual $vtb.do iframe has a resolved boardId — let that frame respond.
+      if (!boardId) return false;
 
       const cards = document.querySelectorAll('.vtb-card-component-wrapper');
       const boardNameEl = document.querySelector('label.sn-navhub-title');

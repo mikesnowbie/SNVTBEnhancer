@@ -8,7 +8,11 @@
 
   function getBoardIdFromUrl(url) {
     if (!url || !url.includes('vtb.do')) return null;
-    const m = url.match(/sysparm_board=([^&]+)/);
+    // ServiceNow's navigation shell URL-encodes the inner URL, so sysparm_board=
+    // may appear as sysparm_board%3D. Decode before parsing.
+    let decoded = url;
+    try { decoded = decodeURIComponent(url); } catch (_) {}
+    const m = decoded.match(/sysparm_board=([^&]+)/);
     return m ? m[1] : null;
   }
 
