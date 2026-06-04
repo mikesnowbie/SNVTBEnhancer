@@ -32,13 +32,17 @@
 
   function renderWipArea(data) {
     const el = document.getElementById('wipArea');
-    const label = data.wipAllLanes ? 'All lanes' : 'Configured WIP lanes';
     el.className = '';
-    el.innerHTML =
+    const label = data.wipAllLanes ? 'All lanes' : 'Configured WIP lanes';
+    let html =
       `<div class="wip-row">` +
       `<span class="wip-number">${data.wipTotal}</span>` +
       `<span class="wip-label">${label}</span>` +
       `</div>`;
+    if (!data.wipAllLanes && data.wipLanes && data.wipLanes.length > 0) {
+      html += `<div class="wip-lanes">${data.wipLanes.join(' · ')}</div>`;
+    }
+    el.innerHTML = html;
   }
 
   function renderAgeArea(data) {

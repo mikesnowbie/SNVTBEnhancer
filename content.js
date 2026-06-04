@@ -1122,6 +1122,7 @@
           sleBreached,
           wipTotal,
           wipAllLanes,
+          wipLanes: wipAllLanes ? [] : (totalWipCfg ? totalWipCfg.lanes : []),
           sleEnabled: sleActive,
           sleDays: sle ? sle.days : 0,
           freshEmoji,
