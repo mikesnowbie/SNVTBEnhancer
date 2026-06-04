@@ -20,8 +20,10 @@
 | File | Purpose |
 |---|---|
 | `manifest.json` | Extension manifest; version number lives here |
+| `shared.js` | Shared config constants, storage, and import/export utilities; loaded by content.js, options.js, and popup.js |
 | `content.js` | Content script — injected into every matching ServiceNow VTB page |
 | `options.html` / `options.js` | Extension options UI (age bands, freshness threshold, emojis) |
+| `popup.html` / `popup.js` | Toolbar popup — board health dashboard and quick settings navigation |
 | `bump-version.js` | Node script that increments the patch version in `manifest.json`; runs in CI only |
 
 ## Git & PR Workflow
@@ -55,7 +57,7 @@ When making changes, document what was manually verified in the PR body.
 
 ## Coding Conventions
 
-- Keep all logic in `content.js` and `options.js`; do not introduce additional script files without a strong reason.
+- The extension has five JS execution contexts: content script (`content.js`), options page (`options.js`), popup (`popup.js`), shared utilities (`shared.js`), and the Node version script (`bump-version.js`). Keep logic in the correct context; don't add new script files without a strong reason (e.g. a new MV3 extension surface like a service worker or devtools panel).
 - No comments unless the reason is non-obvious (hidden constraint, workaround, subtle invariant).
 - Prefer small, focused functions with descriptive names over clever one-liners.
 - Use `const` / `let`; avoid `var`.

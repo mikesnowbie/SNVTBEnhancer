@@ -1007,6 +1007,121 @@
       }
     }
 
+    chrome.runtime.onMessage.addListener(function (message, _sender, sendResponse) {
+      if (message.type !== 'VTB_POPUP_QUERY') return false;
+
+      const cards = document.querySelectorAll('.vtb-card-component-wrapper');
+      const boardNameEl = document.querySelector('label.sn-navhub-title');
+      const resolvedBoardName = boardNameEl
+        ? boardNameEl.textContent.trim()
+        : (fullConfig.boards[boardId] ? fullConfig.boards[boardId].name : null);
+
+      const sle = config.sle;
+      const sleActive = sle && sle.enabled !== false && sle.days > 0;
+      const restrictFreshness = config.wipLanes && config.wipLanes.length > 0;
+      const threshold =
+        typeof config.updateThresholdDays === 'number'
+          ? config.updateThresholdDays
+          : VTBShared.DEFAULT_UPDATE_THRESHOLD_DAYS;
+
+      const ageBandCounts = config.ageBands.map(function (b) {
+        return { maxDays: b.maxDays, color: b.color, count: 0 };
+      });
+      let notStartedCount = 0;
+      let doneCount = 0;
+      let freshCount = 0;
+      let staleCount = 0;
+      let sleApproaching = 0;
+      let sleBreached = 0;
+
+      cards.forEach(function (card) {
+        const state = findState(card);
+
+        if (state && isCompletionState(state)) {
+          doneCount++;
+          return;
+        }
+
+        const startDate = findStartDate(card);
+        const age = startDate ? calculateDaysDiff(startDate) : null;
+
+        if (age !== null) {
+          if (age < 0) {
+            notStartedCount++;
+          } else {
+            for (let i = 0; i < ageBandCounts.length; i++) {
+              if (age < ageBandCounts[i].maxDays) {
+                ageBandCounts[i].count++;
+                break;
+              }
+            }
+            if (sleActive) {
+              if (age >= sle.days) sleBreached++;
+              else if (sle.approachingDays > 0 && age >= sle.days - sle.approachingDays) sleApproaching++;
+            }
+          }
+        }
+
+        const cardLane = restrictFreshness ? findCardLane(card) : null;
+        const countFreshness = !restrictFreshness || (cardLane && config.wipLanes.includes(cardLane));
+        if (countFreshness) {
+          const snTimeAgo = card.querySelector('sn-time-ago');
+          if (snTimeAgo) {
+            const timeEl =
+              snTimeAgo.querySelector('time[data-original-title]') ||
+              snTimeAgo.querySelector('time[title]') ||
+              snTimeAgo.querySelector('time');
+            if (timeEl) {
+              const ts = getTimestampString(timeEl);
+              const lastUpdated = parseServiceNowDateTime(ts);
+              if (lastUpdated) {
+                const days = (Date.now() - lastUpdated.getTime()) / MS_PER_DAY;
+                if (days > threshold) staleCount++;
+                else freshCount++;
+              }
+            }
+          }
+        }
+      });
+
+      let wipTotal = cards.length;
+      let wipAllLanes = true;
+      const totalWipCfg = config.totalWip;
+      if (
+        totalWipCfg &&
+        totalWipCfg.enabled === true &&
+        Array.isArray(totalWipCfg.lanes) &&
+        totalWipCfg.lanes.length > 0
+      ) {
+        wipTotal = countCardsInWipLanes(totalWipCfg.lanes);
+        wipAllLanes = false;
+      }
+
+      const { freshEmoji, staleEmoji } = getIndicatorEmojis();
+
+      sendResponse({
+        boardId,
+        boardName: resolvedBoardName,
+        ageBandCounts,
+        notStartedCount,
+        doneCount,
+        freshCount,
+        staleCount,
+        sleApproaching,
+        sleBreached,
+        wipTotal,
+        wipAllLanes,
+        sleEnabled: sleActive,
+        sleDays: sle ? sle.days : 0,
+        freshEmoji,
+        staleEmoji,
+        approachingEmoji: sle ? (sle.approachingEmoji || '⚠️') : '⚠️',
+        breachedEmoji: sle ? (sle.breachedEmoji || '🔴') : '🔴',
+        updateThresholdDays: threshold,
+      });
+      return true;
+    });
+
     function init() {
       waitForBoardLoad(() => {
         updateBoardInfo(fullConfig);

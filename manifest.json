@@ -4,8 +4,12 @@
   "version": "1.2.0",
   "description": "Enhances ServiceNow Visual Task Boards with work item age badges, freshness indicators, total WIP tracking, and SLE targets.",
   "permissions": [
-    "storage"
+    "storage",
+    "activeTab"
   ],
+  "action": {
+    "default_popup": "popup.html"
+  },
   "icons": {
     "16": "images/icon16.png",
     "48": "images/icon48.png",
