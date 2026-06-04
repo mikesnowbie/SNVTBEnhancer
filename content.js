@@ -1014,116 +1014,124 @@
       // actual $vtb.do iframe has a resolved boardId — let that frame respond.
       if (!boardId) return false;
 
-      const cards = document.querySelectorAll('.vtb-card-component-wrapper');
-      const boardNameEl = document.querySelector('label.sn-navhub-title');
-      const resolvedBoardName = boardNameEl
-        ? boardNameEl.textContent.trim()
-        : (fullConfig.boards[boardId] ? fullConfig.boards[boardId].name : null);
+      // Re-read config from storage so metrics always reflect the current settings,
+      // even when the popup is refreshed after a settings change without a page reload.
+      VTBShared.loadConfig(function (liveFullConfig) {
+        const liveConfig = VTBShared.resolveEffectiveConfig(liveFullConfig, boardId);
 
-      const sle = config.sle;
-      const sleActive = sle && sle.enabled !== false && sle.days > 0;
-      const restrictFreshness = config.wipLanes && config.wipLanes.length > 0;
-      const threshold =
-        typeof config.updateThresholdDays === 'number'
-          ? config.updateThresholdDays
-          : VTBShared.DEFAULT_UPDATE_THRESHOLD_DAYS;
+        const cards = document.querySelectorAll('.vtb-card-component-wrapper');
+        const boardNameEl = document.querySelector('label.sn-navhub-title');
+        const resolvedBoardName = boardNameEl
+          ? boardNameEl.textContent.trim()
+          : (liveFullConfig.boards[boardId] ? liveFullConfig.boards[boardId].name : null);
 
-      const ageBandCounts = config.ageBands.map(function (b) {
-        return { maxDays: b.maxDays, color: b.color, count: 0 };
-      });
-      let notStartedCount = 0;
-      let doneCount = 0;
-      let freshCount = 0;
-      let staleCount = 0;
-      let sleApproaching = 0;
-      let sleBreached = 0;
+        const sle = liveConfig.sle;
+        const sleActive = sle && sle.enabled !== false && sle.days > 0;
+        const restrictFreshness = liveConfig.wipLanes && liveConfig.wipLanes.length > 0;
+        const threshold =
+          typeof liveConfig.updateThresholdDays === 'number'
+            ? liveConfig.updateThresholdDays
+            : VTBShared.DEFAULT_UPDATE_THRESHOLD_DAYS;
 
-      cards.forEach(function (card) {
-        const state = findState(card);
+        const ageBandCounts = liveConfig.ageBands.map(function (b) {
+          return { maxDays: b.maxDays, color: b.color, count: 0 };
+        });
+        let notStartedCount = 0;
+        let doneCount = 0;
+        let freshCount = 0;
+        let staleCount = 0;
+        let sleApproaching = 0;
+        let sleBreached = 0;
 
-        if (state && isCompletionState(state)) {
-          doneCount++;
-          return;
-        }
+        cards.forEach(function (card) {
+          const state = findState(card);
 
-        const startDate = findStartDate(card);
-        const age = startDate ? calculateDaysDiff(startDate) : null;
-
-        if (age !== null) {
-          if (age < 0) {
-            notStartedCount++;
-          } else {
-            for (let i = 0; i < ageBandCounts.length; i++) {
-              if (age < ageBandCounts[i].maxDays) {
-                ageBandCounts[i].count++;
-                break;
-              }
-            }
-            if (sleActive) {
-              if (age >= sle.days) sleBreached++;
-              else if (sle.approachingDays > 0 && age >= sle.days - sle.approachingDays) sleApproaching++;
-            }
+          if (state && isCompletionState(state)) {
+            doneCount++;
+            return;
           }
-        }
 
-        const cardLane = restrictFreshness ? findCardLane(card) : null;
-        const countFreshness = !restrictFreshness || (cardLane && config.wipLanes.includes(cardLane));
-        if (countFreshness) {
-          const snTimeAgo = card.querySelector('sn-time-ago');
-          if (snTimeAgo) {
-            const timeEl =
-              snTimeAgo.querySelector('time[data-original-title]') ||
-              snTimeAgo.querySelector('time[title]') ||
-              snTimeAgo.querySelector('time');
-            if (timeEl) {
-              const ts = getTimestampString(timeEl);
-              const lastUpdated = parseServiceNowDateTime(ts);
-              if (lastUpdated) {
-                const days = (Date.now() - lastUpdated.getTime()) / MS_PER_DAY;
-                if (days > threshold) staleCount++;
-                else freshCount++;
+          const startDate = findStartDate(card);
+          const age = startDate ? calculateDaysDiff(startDate) : null;
+
+          if (age !== null) {
+            if (age < 0) {
+              notStartedCount++;
+            } else {
+              for (let i = 0; i < ageBandCounts.length; i++) {
+                if (age < ageBandCounts[i].maxDays) {
+                  ageBandCounts[i].count++;
+                  break;
+                }
+              }
+              if (sleActive) {
+                if (age >= sle.days) sleBreached++;
+                else if (sle.approachingDays > 0 && age >= sle.days - sle.approachingDays) sleApproaching++;
               }
             }
           }
+
+          const cardLane = restrictFreshness ? findCardLane(card) : null;
+          const countFreshness = !restrictFreshness || (cardLane && liveConfig.wipLanes.includes(cardLane));
+          if (countFreshness) {
+            const snTimeAgo = card.querySelector('sn-time-ago');
+            if (snTimeAgo) {
+              const timeEl =
+                snTimeAgo.querySelector('time[data-original-title]') ||
+                snTimeAgo.querySelector('time[title]') ||
+                snTimeAgo.querySelector('time');
+              if (timeEl) {
+                const ts = getTimestampString(timeEl);
+                const lastUpdated = parseServiceNowDateTime(ts);
+                if (lastUpdated) {
+                  const days = (Date.now() - lastUpdated.getTime()) / MS_PER_DAY;
+                  if (days > threshold) staleCount++;
+                  else freshCount++;
+                }
+              }
+            }
+          }
+        });
+
+        let wipTotal = cards.length;
+        let wipAllLanes = true;
+        const totalWipCfg = liveConfig.totalWip;
+        if (
+          totalWipCfg &&
+          totalWipCfg.enabled === true &&
+          Array.isArray(totalWipCfg.lanes) &&
+          totalWipCfg.lanes.length > 0
+        ) {
+          wipTotal = countCardsInWipLanes(totalWipCfg.lanes);
+          wipAllLanes = false;
         }
+
+        const indicator = liveConfig.updateIndicator || VTBShared.DEFAULT_UPDATE_INDICATOR;
+        const freshEmoji = (indicator && indicator.freshEmoji) || VTBShared.DEFAULT_UPDATE_INDICATOR.freshEmoji;
+        const staleEmoji = (indicator && indicator.staleEmoji) || VTBShared.DEFAULT_UPDATE_INDICATOR.staleEmoji;
+
+        sendResponse({
+          boardId,
+          boardName: resolvedBoardName,
+          ageBandCounts,
+          notStartedCount,
+          doneCount,
+          freshCount,
+          staleCount,
+          sleApproaching,
+          sleBreached,
+          wipTotal,
+          wipAllLanes,
+          sleEnabled: sleActive,
+          sleDays: sle ? sle.days : 0,
+          freshEmoji,
+          staleEmoji,
+          approachingEmoji: sle ? (sle.approachingEmoji || '⚠️') : '⚠️',
+          breachedEmoji: sle ? (sle.breachedEmoji || '🔴') : '🔴',
+          updateThresholdDays: threshold,
+        });
       });
-
-      let wipTotal = cards.length;
-      let wipAllLanes = true;
-      const totalWipCfg = config.totalWip;
-      if (
-        totalWipCfg &&
-        totalWipCfg.enabled === true &&
-        Array.isArray(totalWipCfg.lanes) &&
-        totalWipCfg.lanes.length > 0
-      ) {
-        wipTotal = countCardsInWipLanes(totalWipCfg.lanes);
-        wipAllLanes = false;
-      }
-
-      const { freshEmoji, staleEmoji } = getIndicatorEmojis();
-
-      sendResponse({
-        boardId,
-        boardName: resolvedBoardName,
-        ageBandCounts,
-        notStartedCount,
-        doneCount,
-        freshCount,
-        staleCount,
-        sleApproaching,
-        sleBreached,
-        wipTotal,
-        wipAllLanes,
-        sleEnabled: sleActive,
-        sleDays: sle ? sle.days : 0,
-        freshEmoji,
-        staleEmoji,
-        approachingEmoji: sle ? (sle.approachingEmoji || '⚠️') : '⚠️',
-        breachedEmoji: sle ? (sle.breachedEmoji || '🔴') : '🔴',
-        updateThresholdDays: threshold,
-      });
-      return true;
+      return true; // async — keep the response channel open for the loadConfig callback
     });
 
     function init() {

@@ -130,12 +130,19 @@
   function queryContentScript() {
     if (!currentTab) return;
     setAreasLoading();
-    chrome.tabs.sendMessage(currentTab.id, { type: 'VTB_POPUP_QUERY' }, function (response) {
-      if (chrome.runtime.lastError || !response) {
-        setAreasError('Board data unavailable. Make sure you are on the VTB page and the board has finished loading.');
-        return;
+    VTBShared.loadConfig(function (cfg) {
+      fullConfig = cfg;
+      const board = cfg.boards[currentBoardId];
+      if (board && board.name) {
+        document.getElementById('boardNameDisplay').textContent = board.name;
       }
-      renderDashboard(response);
+      chrome.tabs.sendMessage(currentTab.id, { type: 'VTB_POPUP_QUERY' }, function (response) {
+        if (chrome.runtime.lastError || !response) {
+          setAreasError('Board data unavailable. Make sure you are on the VTB page and the board has finished loading.');
+          return;
+        }
+        renderDashboard(response);
+      });
     });
   }
 
