@@ -764,9 +764,17 @@
       const parts = [];
       if (wipActive) parts.push(`<span><strong>Total WIP: ${wipCount}</strong></span>`);
       if (sleActive) {
+        const showEmojis = sle.showBadgeEmojis !== false;
+        const showBorder = sle.showBadgeBorder !== false;
+        const breachedSymbol = showEmojis ? (sle.breachedEmoji || '🔴') : '▲';
+        const approachingSymbol = showEmojis ? (sle.approachingEmoji || '⚠️') : '⚠';
+        const breachedStyle = 'color:#c0392b;' +
+          (showBorder ? ' outline:2px solid #c0392b; outline-offset:2px; border-radius:4px; padding:1px 6px;' : '');
+        const approachingStyle = 'color:#e67e22;' +
+          (showBorder ? ' outline:2px dashed #e67e22; outline-offset:2px; border-radius:4px; padding:1px 6px;' : '');
         parts.push(`<span>SLE: ${sle.days}d</span>`);
-        parts.push(`<span style="color:#c0392b;">▲ ${over} over</span>`);
-        parts.push(`<span style="color:#e67e22;">⚠ ${approaching} approaching</span>`);
+        parts.push(`<span style="${breachedStyle}">${breachedSymbol} ${over} breached</span>`);
+        parts.push(`<span style="${approachingStyle}">${approachingSymbol} ${approaching} approaching</span>`);
       }
 
       const bgColor = sleActive && over > 0 ? '#fdecea' : sleActive ? '#fff8e1' : '#ebf8ff';
