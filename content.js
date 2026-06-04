@@ -1080,14 +1080,11 @@
         let sleApproaching = 0;
         let sleBreached = 0;
 
-        // Build the set of freshness-eligible cards using a lane-first DOM walk so that
-        // lane membership is determined by DOM containment rather than getBoundingClientRect
-        // position matching, which fails for cards in off-viewport lanes.
-        const freshnessSet = new Set();
+        // Pre-build lane assignments in one pass so the per-card loop avoids
+        // repeated ancestor walks and layout-forcing getBoundingClientRect calls.
+        const cardLaneMap = new Map();
         if (restrictFreshness) {
-          liveConfig.wipLanes.forEach(function (laneName) {
-            getCardsInLane(laneName).forEach(function (c) { freshnessSet.add(c); });
-          });
+          cards.forEach(function (card) { cardLaneMap.set(card, findCardLane(card)); });
         }
 
         cards.forEach(function (card) {
@@ -1118,7 +1115,8 @@
             }
           }
 
-          const countFreshness = !restrictFreshness || freshnessSet.has(card);
+          const cardLane = restrictFreshness ? cardLaneMap.get(card) : null;
+          const countFreshness = !restrictFreshness || (cardLane && liveConfig.wipLanes.includes(cardLane));
           if (countFreshness) {
             const snTimeAgo = card.querySelector('sn-time-ago');
             if (snTimeAgo) {
