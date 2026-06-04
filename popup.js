@@ -1,6 +1,6 @@
 (function () {
   // Update this URL once the Edge Add-ons Store listing is confirmed.
-  const STORE_URL = 'https://microsoftedge.microsoft.com/addons/detail/servicenow-vtb-enhancer/placeholder';
+  const STORE_URL = 'https://microsoftedge.microsoft.com/addons/detail/servicenow-visual-task-bo/jmhhlihdkbdeemfdmehanpkbfkkahpdd';
 
   let currentTab = null;
   let currentBoardId = null;

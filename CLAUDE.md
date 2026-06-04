@@ -33,6 +33,7 @@
 - All work happens locally on a descriptive branch (no mandatory prefix — just make the name clear, e.g. `add-tooltip-to-age-badge`, `fix-duplicate-badge-render`).
 - **Always bump the version as part of the branch** before committing (see Version Management below), so the exact version ships in the PR diff.
 - When ready to publish, push the branch and create a PR with `gh pr create --base main`. The PR title should be concise and imperative. Include a brief summary and test notes in the body.
+- **Always wait for Mike to confirm local testing is done before creating the PR.** Never create a GitHub PR autonomously — ask first.
 - On merge to `main`, CI automatically builds the Edge zip and creates a versioned GitHub Release. No manual release steps needed.
 
 ## Version Management
