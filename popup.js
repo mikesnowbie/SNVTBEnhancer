@@ -155,6 +155,14 @@
     document.getElementById('exportSection').style.display = 'none';
   }
 
+  function setAreasMessage(msg) {
+    AREA_IDS.forEach(function (id) {
+      const el = document.getElementById(id);
+      el.className = 'state-msg';
+      el.textContent = msg;
+    });
+  }
+
   function queryContentScript() {
     if (!currentTab) return;
     setAreasLoading();
@@ -167,6 +175,10 @@
       chrome.tabs.sendMessage(currentTab.id, { type: 'VTB_POPUP_QUERY' }, function (response) {
         if (chrome.runtime.lastError || !response) {
           setAreasError('Board data unavailable. Make sure you are on the VTB page and the board has finished loading.');
+          return;
+        }
+        if (!response.boardLoaded) {
+          setAreasMessage('Board is still loading — click ↺ to retry.');
           return;
         }
         renderDashboard(response);

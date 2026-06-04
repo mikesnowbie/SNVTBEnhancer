@@ -127,6 +127,28 @@
     }
   }
 
+  // Finds all card elements within a named lane by walking up from the lane header.
+  // More reliable than per-card getBoundingClientRect matching for freshness counting
+  // because it does not depend on whether cards are currently in the viewport.
+  function getCardsInLane(laneName) {
+    for (const sel of LANE_TITLE_SELECTORS) {
+      const titleEls = document.querySelectorAll(sel);
+      for (const titleEl of titleEls) {
+        if (getLaneTitleText(titleEl) !== laneName) continue;
+        let ancestor = titleEl.parentElement;
+        while (ancestor && ancestor !== document.body) {
+          if (ancestor.querySelectorAll(sel).length > 1) break;
+          const laneCards = ancestor.querySelectorAll('.vtb-card-component-wrapper');
+          if (laneCards.length > 0) return Array.from(laneCards);
+          ancestor = ancestor.parentElement;
+        }
+        break;
+      }
+      if (titleEls.length > 0) break;
+    }
+    return [];
+  }
+
   // Returns all unique lane names currently visible on the board.
   function discoverLanes() {
     const lanes = [];
@@ -179,6 +201,7 @@
   // Load config then run the main logic.
   VTBShared.loadConfig(function (fullConfig) {
     const config = VTBShared.resolveEffectiveConfig(fullConfig, boardId);
+    let boardLoaded = false;
     // True when the summary bar has something to show regardless of badge/indicator toggles.
     const anySummaryActive =
       (config.sle && config.sle.enabled !== false && config.sle.days > 0 && config.sle.showSummary !== false) ||
@@ -1057,11 +1080,14 @@
         let sleApproaching = 0;
         let sleBreached = 0;
 
-        // Pre-build lane assignments in one pass so the per-card loop avoids
-        // repeated ancestor walks and layout-forcing getBoundingClientRect calls.
-        const cardLaneMap = new Map();
+        // Build the set of freshness-eligible cards using a lane-first DOM walk so that
+        // lane membership is determined by DOM containment rather than getBoundingClientRect
+        // position matching, which fails for cards in off-viewport lanes.
+        const freshnessSet = new Set();
         if (restrictFreshness) {
-          cards.forEach(function (card) { cardLaneMap.set(card, findCardLane(card)); });
+          liveConfig.wipLanes.forEach(function (laneName) {
+            getCardsInLane(laneName).forEach(function (c) { freshnessSet.add(c); });
+          });
         }
 
         cards.forEach(function (card) {
@@ -1092,8 +1118,7 @@
             }
           }
 
-          const cardLane = restrictFreshness ? cardLaneMap.get(card) : null;
-          const countFreshness = !restrictFreshness || (cardLane && liveConfig.wipLanes.includes(cardLane));
+          const countFreshness = !restrictFreshness || freshnessSet.has(card);
           if (countFreshness) {
             const snTimeAgo = card.querySelector('sn-time-ago');
             if (snTimeAgo) {
@@ -1132,6 +1157,7 @@
         );
 
         sendResponse({
+          boardLoaded,
           boardId,
           boardName: resolvedBoardName,
           ageBandCounts,
@@ -1158,6 +1184,7 @@
 
     function init() {
       waitForBoardLoad(() => {
+        boardLoaded = true;
         updateBoardInfo(fullConfig);
         if (!config.enableAgeBadge && !config.enableUpdateIndicator && !anySummaryActive) {
           showDebugMessage('VTB Enhancer disabled for this board (all toggles off)');
