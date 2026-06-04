@@ -786,7 +786,7 @@
         display: 'inline-flex',
         alignItems: 'center',
         gap: '10px',
-        padding: '3px 10px',
+        padding: '6px 10px',
         backgroundColor: bgColor,
         border: `1px solid ${borderColor}`,
         borderRadius: '4px',
