@@ -31,10 +31,11 @@ jobs:
       - name: Build Edge extension zip
         run: |
           zip snvtb-enhancer-edge-v${{ steps.version.outputs.version }}.zip \
-            manifest.json shared.js content.js \
-            options.html options.js \
-            popup.html popup.js \
-            images/icon16.png images/icon48.png images/icon128.png
+            manifest.json \
+            *.html \
+            *.js \
+            images/icon16.png images/icon48.png images/icon128.png \
+            -x "bump-version.js" "package*.json"
 
       - name: Create GitHub Release
         env:
