@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "ServiceNow Visual Task Board Enhancer",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "Enhances ServiceNow Visual Task Boards with work item age badges, freshness indicators, total WIP tracking, and SLE targets.",
   "permissions": [
     "storage",
