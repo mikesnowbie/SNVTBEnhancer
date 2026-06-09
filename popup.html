@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>VTB Enhancer</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: "Segoe UI", Roboto, sans-serif;
+      font-size: 14px;
+      color: #1a202c;
+      background: #f0f4f8;
+      width: 360px;
+    }
+    .popup-header {
+      background: #4299e1;
+      color: white;
+      padding: 10px 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .popup-header-title { font-size: 14px; font-weight: 600; }
+    .popup-header-board { font-size: 11px; opacity: 0.85; margin-top: 1px; }
+    .refresh-btn {
+      background: none;
+      border: 1px solid rgba(255,255,255,0.5);
+      border-radius: 4px;
+      color: white;
+      cursor: pointer;
+      font-size: 14px;
+      line-height: 1;
+      padding: 3px 7px;
+      flex-shrink: 0;
+    }
+    .refresh-btn:hover { background: rgba(255,255,255,0.15); }
+    .section {
+      background: white;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      margin: 8px;
+      padding: 10px 12px;
+    }
+    .section-title {
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: #718096;
+      margin-bottom: 8px;
+    }
+    .btn-row { display: flex; gap: 8px; }
+    .btn {
+      flex: 1;
+      padding: 7px 10px;
+      border-radius: 6px;
+      border: none;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 500;
+    }
+    .btn-primary { background: #4299e1; color: white; }
+    .btn-primary:hover { background: #3182ce; }
+    .btn-secondary { background: #edf2f7; color: #4a5568; }
+    .btn-secondary:hover { background: #e2e8f0; }
+    .btn-secondary:disabled { opacity: 0.45; cursor: not-allowed; }
+    .btn-secondary:disabled:hover { background: #edf2f7; }
+    .btn-full { width: 100%; flex: none; }
+    .wip-row { display: flex; align-items: baseline; gap: 8px; }
+    .wip-number { font-size: 26px; font-weight: 700; color: #2d3748; line-height: 1; }
+    .wip-label { font-size: 12px; color: #718096; }
+    .wip-lanes { font-size: 11px; color: #718096; margin-top: 4px; }
+    table.band-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .band-table td { padding: 3px 4px; vertical-align: middle; }
+    .band-swatch {
+      display: inline-block;
+      width: 12px;
+      height: 12px;
+      border-radius: 3px;
+      flex-shrink: 0;
+      border: 1px solid rgba(0,0,0,0.08);
+    }
+    .band-range { color: #4a5568; }
+    .band-count { text-align: right; font-weight: 600; min-width: 28px; }
+    .band-count-zero { color: #a0aec0; }
+    .stat-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 5px;
+      font-size: 13px;
+    }
+    .stat-row:last-child { margin-bottom: 0; }
+    .stat-hint { font-size: 11px; color: #718096; margin-top: 5px; }
+    .sle-disabled { color: #a0aec0; font-size: 12px; text-align: center; padding: 4px 0; }
+    .sle-disabled button {
+      color: #4299e1;
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 12px;
+      padding: 0;
+      text-decoration: underline;
+    }
+    .state-msg { color: #718096; font-size: 13px; text-align: center; padding: 6px 0; }
+    .error-msg { color: #c53030; font-size: 12px; text-align: center; padding: 6px 0; }
+    .non-vtb-notice { font-size: 13px; color: #718096; text-align: center; padding: 4px 0 2px; }
+    .footer {
+      text-align: center;
+      padding: 4px 8px 10px;
+    }
+    .footer-btn {
+      background: none;
+      border: none;
+      color: #4299e1;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 12px;
+      padding: 0;
+    }
+    .footer-btn:hover { text-decoration: underline; }
+    .copied-msg { color: #38a169; font-size: 12px; }
+  </style>
+</head>
+<body>
+  <div class="popup-header">
+    <div>
+      <div class="popup-header-title">VTB Enhancer</div>
+      <div class="popup-header-board" id="boardNameDisplay"></div>
+    </div>
+    <button class="refresh-btn" id="refreshBtn" title="Refresh data" style="display:none">↺</button>
+  </div>
+
+  <div id="nonVtbNotice" style="display:none">
+    <div class="section">
+      <div class="non-vtb-notice">Open a ServiceNow VTB page to see board health data.</div>
+    </div>
+  </div>
+
+  <div id="dashboardArea" style="display:none">
+    <div class="section">
+      <div class="section-title">Total WIP</div>
+      <div id="wipArea" class="state-msg">Loading…</div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Work Item Age</div>
+      <div id="ageArea" class="state-msg">Loading…</div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Freshness</div>
+      <div id="freshnessArea" class="state-msg">Loading…</div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">SLE Target</div>
+      <div id="sleArea" class="state-msg">Loading…</div>
+    </div>
+  </div>
+
+  <div class="section" id="settingsSection">
+    <div class="section-title">Configure Settings</div>
+    <div class="btn-row">
+        <button class="btn btn-secondary" id="thisBoardSettingsBtn" disabled>This Board</button>
+        <button class="btn btn-secondary" id="defaultSettingsBtn">Default (All Boards)</button>
+    </div>
+  </div>
+
+  <div class="section" id="exportSection" style="display:none">
+    <button class="btn btn-secondary btn-full" id="exportBtn">Export This Board's Config</button>
+  </div>
+
+  <div class="footer">
+    <button class="footer-btn" id="copyLinkBtn">🔗 Copy link to this extension</button>
+    <span class="copied-msg" id="copiedMsg" style="display:none">Copied!</span>
+  </div>
+
+  <script src="shared.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>

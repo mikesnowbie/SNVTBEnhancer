@@ -569,6 +569,11 @@ document.addEventListener('DOMContentLoaded', function () {
 
   VTBShared.loadConfig(function (config) {
     fullConfig = config;
+    const urlParams = new URLSearchParams(window.location.search);
+    const preselect = urlParams.get('board');
+    if (preselect && fullConfig.boards[preselect]) {
+      currentBoardId = preselect;
+    }
     populateBoardSelect();
     renderConfigToUI(VTBShared.resolveEffectiveConfig(fullConfig, currentBoardId));
     updatePreview();

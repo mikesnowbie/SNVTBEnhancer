@@ -12,8 +12,9 @@ A Microsoft Edge extension (also compatible with Chrome) that adds four flow-met
 - [Total Work in Progress](#2-total-work-in-progress)
 - [Last Updated Freshness Indicators](#3-last-updated-freshness-indicators)
 - [Service Level Expectation (SLE) Target](#4-service-level-expectation-sle-target)
+- [Board Health Dashboard (Popup)](#5-board-health-dashboard-popup)
 
-All four features are independently toggleable, configured per board through the extension options page, and fall back to global defaults when no board-specific override is set.
+The first four features are independently toggleable, configured per board through the extension options page, and fall back to global defaults when no board-specific override is set.
 
 ---
 
@@ -95,6 +96,32 @@ Sets a maximum age target in days per board. Cards approaching or breaching the 
 - **Colored border**: adds a dashed orange border as cards approach the target and a solid red border when breached.
 
 The summary bar, status emojis, and colored border are each independently toggleable.
+
+---
+
+### 5. Board Health Dashboard (Popup)
+
+Clicking the extension icon in the Edge or Chrome toolbar opens a popup that shows a live summary of the active board's flow metrics in one place — no need to scroll the board or open the options page.
+
+![Board health dashboard popup](images/screenshot-popup.png)
+
+**What the popup shows**
+
+| Section | What it displays |
+|---|---|
+| **Total WIP** | Card count across your configured WIP lanes, with lane names listed below the number |
+| **Work Item Age** | Distribution of cards across each color-coded age band, plus not-yet-started and done counts |
+| **Freshness** | Fresh and stale card totals with the configured staleness threshold shown |
+| **SLE Target** | Approaching and breached card counts; shown as "not configured" if SLE is not set up for the board |
+
+**Controls**
+
+- **↺ Refresh** — re-reads settings from storage and rescans the board without a full page reload; useful immediately after changing options
+- **This Board / Default (All Boards)** — open the options page with the current board pre-selected, or jump straight to the default settings
+- **Export This Board's Config** — downloads a JSON file of the current board's settings for backup or sharing
+- **Copy link to this extension** — copies the Edge Add-ons Store URL to the clipboard for easy sharing
+
+> **Note on freshness counts:** ServiceNow loads lane content progressively as you scroll. The popup accumulates freshness counts as each lane becomes visible, so the total may be incomplete until you have scrolled through all lanes. A note in the Freshness section reminds you of this.
 
 ---
 

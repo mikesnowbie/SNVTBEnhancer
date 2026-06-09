@@ -20,8 +20,10 @@
 | File | Purpose |
 |---|---|
 | `manifest.json` | Extension manifest; version number lives here |
+| `shared.js` | Shared config constants, storage, and import/export utilities; loaded by content.js, options.js, and popup.js |
 | `content.js` | Content script — injected into every matching ServiceNow VTB page |
 | `options.html` / `options.js` | Extension options UI (age bands, freshness threshold, emojis) |
+| `popup.html` / `popup.js` | Toolbar popup — board health dashboard and quick settings navigation |
 | `bump-version.js` | Node script that increments the patch version in `manifest.json`; runs in CI only |
 
 ## Git & PR Workflow
@@ -31,6 +33,7 @@
 - All work happens locally on a descriptive branch (no mandatory prefix — just make the name clear, e.g. `add-tooltip-to-age-badge`, `fix-duplicate-badge-render`).
 - **Always bump the version as part of the branch** before committing (see Version Management below), so the exact version ships in the PR diff.
 - When ready to publish, push the branch and create a PR with `gh pr create --base main`. The PR title should be concise and imperative. Include a brief summary and test notes in the body.
+- **Always wait for Mike to confirm local testing is done before creating the PR.** Never create a GitHub PR autonomously — ask first.
 - On merge to `main`, CI automatically builds the Edge zip and creates a versioned GitHub Release. No manual release steps needed.
 
 ## Version Management
@@ -55,7 +58,7 @@ When making changes, document what was manually verified in the PR body.
 
 ## Coding Conventions
 
-- Keep all logic in `content.js` and `options.js`; do not introduce additional script files without a strong reason.
+- The extension has five JS execution contexts: content script (`content.js`), options page (`options.js`), popup (`popup.js`), shared utilities (`shared.js`), and the Node version script (`bump-version.js`). Keep logic in the correct context; don't add new script files without a strong reason (e.g. a new MV3 extension surface like a service worker or devtools panel).
 - No comments unless the reason is non-obvious (hidden constraint, workaround, subtle invariant).
 - Prefer small, focused functions with descriptive names over clever one-liners.
 - Use `const` / `let`; avoid `var`.

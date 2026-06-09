@@ -13,8 +13,14 @@
 (function () {
   if (!window.location.href.includes('vtb.do')) return;
 
-  const boardIdMatch = window.location.href.match(/sysparm_board=([^&]+)/);
+  const boardIdMatch = window.location.pathname.includes('$vtb.do')
+    ? window.location.search.match(/[?&]sysparm_board=([^&]+)/)
+    : null;
   const boardId = boardIdMatch ? boardIdMatch[1] : null;
+
+  function escHtml(s) {
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
 
   // CSS selectors tried in order when searching for a lane/column title element.
   // ServiceNow VTB renders lanes as columns; the title is in a header child element.
@@ -121,6 +127,28 @@
     }
   }
 
+  // Finds all card elements within a named lane by walking up from the lane header.
+  // More reliable than per-card getBoundingClientRect matching for freshness counting
+  // because it does not depend on whether cards are currently in the viewport.
+  function getCardsInLane(laneName) {
+    for (const sel of LANE_TITLE_SELECTORS) {
+      const titleEls = document.querySelectorAll(sel);
+      for (const titleEl of titleEls) {
+        if (getLaneTitleText(titleEl) !== laneName) continue;
+        let ancestor = titleEl.parentElement;
+        while (ancestor && ancestor !== document.body) {
+          if (ancestor.querySelectorAll(sel).length > 1) break;
+          const laneCards = ancestor.querySelectorAll('.vtb-card-component-wrapper');
+          if (laneCards.length > 0) return Array.from(laneCards);
+          ancestor = ancestor.parentElement;
+        }
+        break;
+      }
+      if (titleEls.length > 0) break;
+    }
+    return [];
+  }
+
   // Returns all unique lane names currently visible on the board.
   function discoverLanes() {
     const lanes = [];
@@ -173,6 +201,14 @@
   // Load config then run the main logic.
   VTBShared.loadConfig(function (fullConfig) {
     const config = VTBShared.resolveEffectiveConfig(fullConfig, boardId);
+    let boardLoaded = false;
+    // Freshness counters accumulated as indicators are drawn (including virtual-scroll
+    // reveals). freshnessAccumStarted flips true on first trackFreshness call so the
+    // message handler knows whether to use accumulated counts or fall back to DOM scan.
+    let accumFreshCount = 0;
+    let accumStaleCount = 0;
+    let freshnessAccumStarted = false;
+    const cardFreshnessMap = new WeakMap();
     // True when the summary bar has something to show regardless of badge/indicator toggles.
     const anySummaryActive =
       (config.sle && config.sle.enabled !== false && config.sle.days > 0 && config.sle.showSummary !== false) ||
@@ -194,6 +230,17 @@
       });
       document.body.appendChild(div);
       setTimeout(() => div.remove(), 3000);
+    }
+
+    function trackFreshness(card, newState) {
+      freshnessAccumStarted = true;
+      const prev = cardFreshnessMap.get(card);
+      if (prev === newState) return;
+      if (prev === 'fresh') accumFreshCount--;
+      else if (prev === 'stale') accumStaleCount--;
+      if (newState === 'fresh') accumFreshCount++;
+      else if (newState === 'stale') accumStaleCount++;
+      cardFreshnessMap.set(card, newState);
     }
 
     const MS_PER_DAY = 1000 * 60 * 60 * 24;
@@ -410,6 +457,10 @@
 
     function applyUpdateIndicator(timeElement) {
       const state = computeUpdateIndicatorState(timeElement);
+      // Accumulate freshness counts as each indicator is drawn, so the popup can
+      // read up-to-date totals without rescanning the DOM on every query.
+      const card = timeElement.closest('.vtb-card-component-wrapper');
+      if (card) trackFreshness(card, state ? (state.isStale ? 'stale' : 'fresh') : null);
       const snTimeAgo = timeElement.closest('sn-time-ago');
       if (!snTimeAgo) return;
 
@@ -764,9 +815,17 @@
       const parts = [];
       if (wipActive) parts.push(`<span><strong>Total WIP: ${wipCount}</strong></span>`);
       if (sleActive) {
+        const showEmojis = sle.showBadgeEmojis !== false;
+        const showBorder = sle.showBadgeBorder !== false;
+        const breachedSymbol = showEmojis ? escHtml(sle.breachedEmoji || '🔴') : '▲';
+        const approachingSymbol = showEmojis ? escHtml(sle.approachingEmoji || '⚠️') : '⚠';
+        const breachedStyle = 'color:#c0392b;' +
+          (showBorder ? ' outline:2px solid #c0392b; outline-offset:2px; border-radius:4px; padding:1px 6px;' : '');
+        const approachingStyle = 'color:#e67e22;' +
+          (showBorder ? ' outline:2px dashed #e67e22; outline-offset:2px; border-radius:4px; padding:1px 6px;' : '');
         parts.push(`<span>SLE: ${sle.days}d</span>`);
-        parts.push(`<span style="color:#c0392b;">▲ ${over} over</span>`);
-        parts.push(`<span style="color:#e67e22;">⚠ ${approaching} approaching</span>`);
+        parts.push(`<span style="${breachedStyle}">${breachedSymbol} ${over} breached</span>`);
+        parts.push(`<span style="${approachingStyle}">${approachingSymbol} ${approaching} approaching</span>`);
       }
 
       const bgColor = sleActive && over > 0 ? '#fdecea' : sleActive ? '#fff8e1' : '#ebf8ff';
@@ -778,7 +837,7 @@
         display: 'inline-flex',
         alignItems: 'center',
         gap: '10px',
-        padding: '3px 10px',
+        padding: '6px 10px',
         backgroundColor: bgColor,
         border: `1px solid ${borderColor}`,
         borderRadius: '4px',
@@ -1007,8 +1066,151 @@
       }
     }
 
+    chrome.runtime.onMessage.addListener(function (message, _sender, sendResponse) {
+      if (message.type !== 'VTB_POPUP_QUERY') return false;
+      // boardId is null in the shell frame because its pathname (/now/nav/...) does
+      // not contain a literal $vtb.do; only the actual $vtb.do iframe matches and
+      // gets a resolved boardId — let that frame respond.
+      if (!boardId) return false;
+
+      // Re-read config from storage so metrics always reflect the current settings,
+      // even when the popup is refreshed after a settings change without a page reload.
+      VTBShared.loadConfig(function (liveFullConfig) {
+        const liveConfig = VTBShared.resolveEffectiveConfig(liveFullConfig, boardId);
+
+        const cards = document.querySelectorAll('.vtb-card-component-wrapper');
+        const boardNameEl = document.querySelector('label.sn-navhub-title');
+        const resolvedBoardName = boardNameEl
+          ? boardNameEl.textContent.trim()
+          : (liveFullConfig.boards[boardId] ? liveFullConfig.boards[boardId].name : null);
+
+        const sle = liveConfig.sle;
+        const sleActive = sle && sle.enabled !== false && sle.days > 0;
+        const restrictFreshness = liveConfig.wipLanes && liveConfig.wipLanes.length > 0;
+        const threshold =
+          typeof liveConfig.updateThresholdDays === 'number'
+            ? liveConfig.updateThresholdDays
+            : VTBShared.DEFAULT_UPDATE_THRESHOLD_DAYS;
+
+        const ageBandCounts = liveConfig.ageBands.map(function (b) {
+          return { maxDays: b.maxDays, color: b.color, count: 0 };
+        });
+        let notStartedCount = 0;
+        let doneCount = 0;
+        let freshCount = 0;
+        let staleCount = 0;
+        let sleApproaching = 0;
+        let sleBreached = 0;
+
+        // cardLaneMap is only needed for the DOM-scan freshness fallback used when
+        // enableUpdateIndicator is off and freshnessAccumStarted is still false.
+        const cardLaneMap = new Map();
+        if (!freshnessAccumStarted && restrictFreshness) {
+          cards.forEach(function (card) { cardLaneMap.set(card, findCardLane(card)); });
+        }
+
+        cards.forEach(function (card) {
+          const state = findState(card);
+
+          if (state && isCompletionState(state)) {
+            doneCount++;
+            return;
+          }
+
+          const startDate = findStartDate(card);
+          const age = startDate ? calculateDaysDiff(startDate) : null;
+
+          if (age !== null) {
+            if (age < 0) {
+              notStartedCount++;
+            } else {
+              for (let i = 0; i < ageBandCounts.length; i++) {
+                if (age < ageBandCounts[i].maxDays) {
+                  ageBandCounts[i].count++;
+                  break;
+                }
+              }
+              if (sleActive) {
+                if (age >= sle.days) sleBreached++;
+                else if (sle.approachingDays > 0 && age >= sle.days - sle.approachingDays) sleApproaching++;
+              }
+            }
+          }
+
+          if (!freshnessAccumStarted) {
+            const cardLane = restrictFreshness ? cardLaneMap.get(card) : null;
+            const countFreshness = !restrictFreshness || (cardLane && liveConfig.wipLanes.includes(cardLane));
+            if (countFreshness) {
+              const snTimeAgo = card.querySelector('sn-time-ago');
+              if (snTimeAgo) {
+                const timeEl =
+                  snTimeAgo.querySelector('time[data-original-title]') ||
+                  snTimeAgo.querySelector('time[title]') ||
+                  snTimeAgo.querySelector('time');
+                if (timeEl) {
+                  const ts = getTimestampString(timeEl);
+                  const lastUpdated = parseServiceNowDateTime(ts);
+                  if (lastUpdated) {
+                    const days = (Date.now() - lastUpdated.getTime()) / MS_PER_DAY;
+                    if (days > threshold) staleCount++;
+                    else freshCount++;
+                  }
+                }
+              }
+            }
+          }
+        });
+        if (freshnessAccumStarted) {
+          freshCount = accumFreshCount;
+          staleCount = accumStaleCount;
+        }
+
+        let wipTotal = cards.length;
+        let wipAllLanes = true;
+        const totalWipCfg = liveConfig.totalWip;
+        if (
+          totalWipCfg &&
+          totalWipCfg.enabled === true &&
+          Array.isArray(totalWipCfg.lanes) &&
+          totalWipCfg.lanes.length > 0
+        ) {
+          wipTotal = countCardsInWipLanes(totalWipCfg.lanes);
+          wipAllLanes = false;
+        }
+
+        const { freshEmoji, staleEmoji } = VTBShared.normalizeIndicator(
+          liveConfig.updateIndicator, VTBShared.DEFAULT_UPDATE_INDICATOR
+        );
+
+        sendResponse({
+          boardLoaded,
+          boardId,
+          boardName: resolvedBoardName,
+          ageBandCounts,
+          notStartedCount,
+          doneCount,
+          freshCount,
+          staleCount,
+          sleApproaching,
+          sleBreached,
+          wipTotal,
+          wipAllLanes,
+          wipLanes: wipAllLanes ? [] : totalWipCfg.lanes,
+          sleEnabled: sleActive,
+          sleDays: sle ? sle.days : 0,
+          freshEmoji,
+          staleEmoji,
+          approachingEmoji: sle ? (sle.approachingEmoji || '⚠️') : '⚠️',
+          breachedEmoji: sle ? (sle.breachedEmoji || '🔴') : '🔴',
+          updateThresholdDays: threshold,
+        });
+      });
+      return true; // async — keep the response channel open for the loadConfig callback
+    });
+
     function init() {
       waitForBoardLoad(() => {
+        boardLoaded = true;
         updateBoardInfo(fullConfig);
         if (!config.enableAgeBadge && !config.enableUpdateIndicator && !anySummaryActive) {
           showDebugMessage('VTB Enhancer disabled for this board (all toggles off)');
