@@ -1,9 +1,13 @@
 *.zip
 .DS_Store
+node_modules/
 .vscode/settings.json
 
-# Local test harness — contains real board data, never commit
-test/
+# Test harness runtime artifacts — contain real board data, never commit
+test/.edge-profile/
+test/output/
+test/playwright-report/
+test/test-results/
 
 .claude/
 .obsidian/

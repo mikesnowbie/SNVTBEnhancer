@@ -1,8 +1,14 @@
 {
   "name": "snvtb-enhancer",
   "version": "1.0.0",
+  "type": "module",
   "scripts": {
-    "test": "echo \"No tests\""
+    "test": "echo \"Run: npm run test:explore  or  npm run test:assert\"",
+    "test:explore": "node test/explore.js",
+    "test:assert": "npx playwright test --config=test/playwright.config.js"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.44.0"
   },
   "license": "GPL-3.0"
 }
