@@ -41,7 +41,9 @@ test('cards receive the correct color for their age band', async () => {
   expect(results.length).toBeGreaterThan(0);
 
   for (const { ageDays, color } of results) {
-    const expected = ageDays <= 10
+    // content.js uses age < band.maxDays (exclusive), so age === maxDays goes
+    // into the next band. Mirror that boundary here: < 10, not <= 10.
+    const expected = ageDays < 10
       ? helpers.hexToRgb('#aaaaff')
       : helpers.hexToRgb('#ff4444');
     expect(color).toBe(expected);

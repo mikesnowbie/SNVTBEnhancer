@@ -25,6 +25,7 @@ Board URLs are not stored in source — they contain ServiceNow system IDs speci
 Copy the example template and fill in your own board URLs:
 
 ```bash
+mkdir -p test-local
 cp test/config.example.json test-local/config.json
 ```
 
