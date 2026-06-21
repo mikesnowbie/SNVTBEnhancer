@@ -9,7 +9,8 @@ import * as helpers from './helpers.js';
 const OUTPUT_DIR = path.resolve('test-local/output');
 fs.mkdirSync(OUTPUT_DIR, { recursive: true });
 
-const BOARD_URL = 'https://khndev.service-now.com/now/nav/ui/classic/params/target/%24vtb.do%3Fsysparm_board%3Dc66cfa4d931816d0ecacff584dba1009';
+// Use a dedicated exploration board if configured; fall back to the primary board.
+const BOARD_URL = helpers.testConfig.exploreBoardUrl ?? helpers.testConfig.primaryBoardUrl;
 
 const context = await helpers.launchEdge();
 

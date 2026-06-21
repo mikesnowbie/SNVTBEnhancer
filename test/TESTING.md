@@ -18,7 +18,31 @@ npm install
 
 This installs Playwright and its Edge browser driver. Run once per machine (or after pulling a new version).
 
-**2. Prime the Edge profile**
+**2. Create your local board config**
+
+Board URLs are not stored in source — they contain ServiceNow system IDs specific to your instance and must never be committed.
+
+Copy the example template and fill in your own board URLs:
+
+```bash
+cp test/config.example.json test-local/config.json
+```
+
+Then edit `test-local/config.json`:
+
+```json
+{
+  "primaryBoardUrl": "https://YOUR-INSTANCE.service-now.com/now/nav/...",
+  "exploreBoardUrl": "https://YOUR-INSTANCE.service-now.com/now/nav/..."
+}
+```
+
+- `primaryBoardUrl` — the board used by all six assertion test cases
+- `exploreBoardUrl` — an optional larger board for `npm run test:explore` diagnostics; falls back to `primaryBoardUrl` if omitted
+
+`test-local/` is gitignored entirely, so `config.json` will never be committed.
+
+**3. Prime the Edge profile**
 
 The harness uses a persistent Edge profile at `test-local/.edge-profile/`. This profile stores your ServiceNow authentication cookies so tests can navigate directly to board URLs without prompting for login. You only need to do this once:
 

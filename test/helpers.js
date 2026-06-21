@@ -5,7 +5,23 @@ import fs from 'fs';
 
 const EXTENSION_PATH = path.resolve(fileURLToPath(import.meta.url), '../..');
 const USER_DATA_DIR  = path.resolve(fileURLToPath(import.meta.url), '../../test-local/.edge-profile');
-const BOARD_URL = 'https://khndev.service-now.com/now/nav/ui/classic/params/target/%24vtb.do%3Fsysparm_board%3Daa271d4c1b99c310f98ea794604bcba2';
+
+// Board URLs live in test-local/config.json — gitignored, never committed.
+// Copy test/config.example.json to test-local/config.json and fill in your board URLs.
+const CONFIG_PATH = path.resolve(fileURLToPath(import.meta.url), '../../test-local/config.json');
+let testConfig;
+try {
+  testConfig = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
+} catch {
+  throw new Error(
+    'test-local/config.json not found.\n' +
+    'Copy test/config.example.json to test-local/config.json and fill in your board URLs.\n' +
+    `Expected: ${CONFIG_PATH}`
+  );
+}
+export { testConfig };
+
+const BOARD_URL = testConfig.primaryBoardUrl;
 
 export async function launchEdge() {
   return chromium.launchPersistentContext(USER_DATA_DIR, {
