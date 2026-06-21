@@ -52,7 +52,8 @@ test('badge shows plain days when enableAgeBadgePrefix is false', async () => {
   expect(texts.length).toBeGreaterThan(0);
   for (const text of texts) {
     expect(text).not.toContain('Age:');
-    // Strip any SLE emoji prefix (e.g. "🔴 15d") then check for plain Nd pattern
-    expect(text.replace(/^[\p{Emoji}\s]+/u, '')).toMatch(/^\d+d$/);
+    // Strip any SLE emoji prefix (e.g. "🔴 15d"). Use Extended_Pictographic rather than
+    // Emoji because \p{Emoji} includes ASCII digits (0-9), which would strip the number.
+    expect(text.replace(/^[\p{Extended_Pictographic}\s]+/u, '')).toMatch(/^\d+d$/);
   }
 });

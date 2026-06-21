@@ -31,7 +31,11 @@ test('cards receive the correct color for their age band', async () => {
     [...document.querySelectorAll('[data-task-age-enhanced="true"]')].map(card => ({
       ageDays: parseInt(card.getAttribute('data-task-age-days'), 10),
       color:   card.querySelector('div[style*="border-radius"]')?.style?.backgroundColor,
-    })).filter(r => r.color)
+    })).filter(r =>
+      // Exclude Done cards (no data-task-age-days → NaN) and future-start cards (age < 0,
+      // shown with a fixed #95a5a6 color that's not part of the configurable age bands).
+      r.color && !isNaN(r.ageDays) && r.ageDays >= 0
+    )
   );
 
   expect(results.length).toBeGreaterThan(0);

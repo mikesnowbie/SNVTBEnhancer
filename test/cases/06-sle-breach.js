@@ -48,7 +48,9 @@ test('breach emoji appears on badges when cards exceed SLE target', async () => 
         return {
           age,
           text:   badge?.textContent?.trim(),
-          border: badge?.style?.border ?? badge?.style?.outline ?? '',
+          // element.style.border returns "" (not null) when unset, so ?? won't fall through —
+          // use || to also treat empty string as absent and check outline (which content.js uses).
+          border: badge?.style?.outline || badge?.style?.border || '',
         };
       })
       .filter(r => r.age >= 1) // only cards that should be breached
@@ -58,8 +60,8 @@ test('breach emoji appears on badges when cards exceed SLE target', async () => 
 
   for (const { text, border } of results) {
     expect(text).toContain('🔴');
-    // Breached cards get a solid red border — check for red color in border string
-    expect(border).toMatch(/red|#d9534f|rgb\(217/i);
+    // Breached cards get a solid red outline — content.js uses #c0392b (rgb(192, 57, 43))
+    expect(border).toMatch(/red|#c0392b|rgb\(192/i);
   }
 });
 

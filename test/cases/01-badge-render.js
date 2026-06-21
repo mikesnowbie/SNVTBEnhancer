@@ -32,8 +32,11 @@ test('every enhanced card has a badge div', async () => {
 });
 
 test('every enhanced card has a data-task-age-days attribute', async () => {
+  // Done-state cards get data-task-age-enhanced but intentionally no data-task-age-days
+  // (they show "Done", not an age). Exclude them from this check.
   const allHaveDays = await frame.evaluate(() =>
     [...document.querySelectorAll('[data-task-age-enhanced="true"]')]
+      .filter(card => card.querySelector('div[style*="border-radius"]')?.textContent?.trim() !== 'Done')
       .every(card => card.hasAttribute('data-task-age-days'))
   );
   expect(allHaveDays).toBe(true);

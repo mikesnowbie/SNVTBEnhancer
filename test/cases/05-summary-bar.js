@@ -41,10 +41,10 @@ test('summary bar appears when SLE is enabled for this board', async () => {
   await vtbPage.reload({ waitUntil: 'networkidle' });
   frame = await helpers.waitForBoardEnhanced(vtbPage);
 
-  // Summary bar is rendered by the outer nav-shell frame using the board title selector,
-  // so query from vtbPage (the shell page), not the inner frame.
-  await vtbPage.waitForSelector('#vtb-enhancer-sle-bar', { timeout: 15_000 });
-  const barText = await vtbPage.$eval('#vtb-enhancer-sle-bar', el => el.textContent?.trim());
+  // Summary bar is inserted by the content script into the inner VTB frame
+  // (next to label.sn-navhub-title there), not the outer nav-shell page.
+  await frame.waitForSelector('#vtb-enhancer-sle-bar', { timeout: 15_000 });
+  const barText = await frame.$eval('#vtb-enhancer-sle-bar', el => el.textContent?.trim());
 
   expect(barText).toBeTruthy();
   expect(barText).toMatch(/SLE/);
@@ -60,7 +60,7 @@ test('summary bar is absent when SLE is disabled', async () => {
   await vtbPage.reload({ waitUntil: 'networkidle' });
   frame = await helpers.waitForBoardEnhanced(vtbPage);
 
-  await vtbPage.waitForTimeout(3000);
-  const barExists = await vtbPage.$('#vtb-enhancer-sle-bar');
+  await frame.waitForTimeout(3000);
+  const barExists = await frame.$('#vtb-enhancer-sle-bar');
   expect(barExists).toBeNull();
 });
