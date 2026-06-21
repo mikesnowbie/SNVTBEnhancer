@@ -32,15 +32,11 @@ Then edit `test-local/config.json`:
 
 ```json
 {
-  "primaryBoardUrl": "https://YOUR-INSTANCE.service-now.com/now/nav/...",
-  "exploreBoardUrl": "https://YOUR-INSTANCE.service-now.com/now/nav/..."
+  "testingBoardUrl": "https://YOUR-INSTANCE.service-now.com/now/nav/..."
 }
 ```
 
-- `primaryBoardUrl` — the board used by all six assertion test cases
-- `exploreBoardUrl` — an optional larger board for `npm run test:explore` diagnostics; falls back to `primaryBoardUrl` if omitted
-
-`test-local/` is gitignored entirely, so `config.json` will never be committed.
+`testingBoardUrl` is used by both the assertion test cases and the explore script. `test-local/` is gitignored entirely, so `config.json` will never be committed.
 
 **3. Prime the Edge profile**
 

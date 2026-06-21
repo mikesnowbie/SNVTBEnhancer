@@ -21,7 +21,7 @@ try {
 }
 export { testConfig };
 
-const BOARD_URL = testConfig.primaryBoardUrl;
+const BOARD_URL = testConfig.testingBoardUrl;
 
 export async function launchEdge() {
   return chromium.launchPersistentContext(USER_DATA_DIR, {
