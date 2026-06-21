@@ -4,7 +4,7 @@ import path from 'path';
 import fs from 'fs';
 
 const EXTENSION_PATH = path.resolve(fileURLToPath(import.meta.url), '../..');
-const USER_DATA_DIR  = path.resolve(fileURLToPath(import.meta.url), '../.edge-profile');
+const USER_DATA_DIR  = path.resolve(fileURLToPath(import.meta.url), '../../test-local/.edge-profile');
 const BOARD_URL = 'https://khndev.service-now.com/now/nav/ui/classic/params/target/%24vtb.do%3Fsysparm_board%3Daa271d4c1b99c310f98ea794604bcba2';
 
 export async function launchEdge() {
@@ -59,7 +59,7 @@ export async function getExtensionId(context) {
   if (idViaDom) { await page.close(); return idViaDom; }
 
   // Both failed — save debug artifacts so we can see what Edge actually rendered.
-  const OUTPUT_DIR = path.resolve('test/output');
+  const OUTPUT_DIR = path.resolve('test-local/output');
   fs.mkdirSync(OUTPUT_DIR, { recursive: true });
   await page.screenshot({ path: path.join(OUTPUT_DIR, 'extensions-debug.png'), fullPage: true });
   const debugInfo = await page.evaluate(() => ({
@@ -72,8 +72,8 @@ export async function getExtensionId(context) {
   await page.close();
   throw new Error(
     'Extension not found in edge://extensions/.\n' +
-    'Debug screenshot → test/output/extensions-debug.png\n' +
-    'Debug info      → test/output/extensions-debug.json\n' +
+    'Debug screenshot → test-local/output/extensions-debug.png\n' +
+    'Debug info      → test-local/output/extensions-debug.json\n' +
     'Share both files to diagnose. Also check that the extension loads in a normal Edge window at edge://extensions/.'
   );
 }

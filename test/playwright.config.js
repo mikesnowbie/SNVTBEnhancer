@@ -8,5 +8,6 @@ export default {
     screenshot: 'on',
     video:      'retain-on-failure',
   },
-  reporter: [['html', { open: 'never' }]],
+  outputDir:  '../test-local/test-results',
+  reporter: [['html', { open: 'never', outputFolder: '../test-local/playwright-report' }]],
 };

@@ -3,11 +3,8 @@
 node_modules/
 .vscode/settings.json
 
-# Test harness runtime artifacts — contain real board data, never commit
-test/.edge-profile/
-test/output/
-playwright-report/
-test-results/
+# Test harness runtime artifacts — auth cookies and board-specific data, never commit
+test-local/
 
 .claude/
 .obsidian/

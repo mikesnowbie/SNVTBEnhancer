@@ -1,6 +1,6 @@
 {
   "name": "snvtb-enhancer",
-  "version": "1.0.0",
+  "version": "1.3.0",
   "type": "module",
   "scripts": {
     "test": "echo \"Run: npm run test:explore  or  npm run test:assert\"",

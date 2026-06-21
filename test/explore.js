@@ -1,12 +1,12 @@
 // Explore mode: launches Edge with the extension, navigates to the board directly,
 // captures screenshots and DOM data. No assertions — purely observational.
-// Share test/output/ with Claude for visual analysis and edge case discovery.
+// Share test-local/output/ with Claude for visual analysis and edge case discovery.
 
 import fs from 'fs';
 import path from 'path';
 import * as helpers from './helpers.js';
 
-const OUTPUT_DIR = path.resolve('test/output');
+const OUTPUT_DIR = path.resolve('test-local/output');
 fs.mkdirSync(OUTPUT_DIR, { recursive: true });
 
 const BOARD_URL = 'https://khndev.service-now.com/now/nav/ui/classic/params/target/%24vtb.do%3Fsysparm_board%3Dc66cfa4d931816d0ecacff584dba1009';
@@ -172,10 +172,10 @@ try {
   d.hiddenSample.forEach((s, i) => console.log(`  [${i}] ${JSON.stringify(s)}`.slice(0, 160)));
 
   console.log('\nFiles written:');
-  console.log('  test/output/board-full.png      — full page screenshot');
-  console.log('  test/output/board-frame.png     — inner VTB frame');
-  console.log('  test/output/board-data.json     — badge data');
-  console.log('  test/output/freshness-diag.json — hidden card timestamp diagnostic');
+  console.log('  test-local/output/board-full.png      — full page screenshot');
+  console.log('  test-local/output/board-frame.png     — inner VTB frame');
+  console.log('  test-local/output/board-data.json     — badge data');
+  console.log('  test-local/output/freshness-diag.json — hidden card timestamp diagnostic');
 
 } finally {
   await context.close();

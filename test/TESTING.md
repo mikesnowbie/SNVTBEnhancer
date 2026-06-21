@@ -20,7 +20,7 @@ This installs Playwright and its Edge browser driver. Run once per machine (or a
 
 **2. Prime the Edge profile**
 
-The harness uses a persistent Edge profile at `test/.edge-profile/`. This profile stores your ServiceNow authentication cookies so tests can navigate directly to board URLs without prompting for login. You only need to do this once:
+The harness uses a persistent Edge profile at `test-local/.edge-profile/`. This profile stores your ServiceNow authentication cookies so tests can navigate directly to board URLs without prompting for login. You only need to do this once:
 
 ```bash
 npm run test:explore
@@ -30,7 +30,7 @@ On first run, the navigation will land on the Microsoft/SAML login page. Sign in
 
 Subsequent runs will navigate directly to the board without prompting.
 
-> **Security note:** `test/.edge-profile/` contains real authentication cookies. It is gitignored and must never be committed or shared.
+> **Security note:** `test-local/.edge-profile/` contains real authentication cookies. The entire `test-local/` directory is gitignored and must never be committed or shared.
 
 ## Running Tests
 
@@ -40,7 +40,7 @@ Subsequent runs will navigate directly to the board without prompting.
 npm run test:assert
 ```
 
-Runs all six test cases in `test/cases/` serially (one worker, one shared profile). Each case opens its own Edge window, navigates to the configured board, and makes assertions. Produces a Playwright HTML report in `playwright-report/`.
+Runs all six test cases in `test/cases/` serially (one worker, one shared profile). Each case opens its own Edge window, navigates to the configured board, and makes assertions. The HTML report is written to `test-local/playwright-report/`.
 
 ### Exploration / diagnostics
 
@@ -48,7 +48,7 @@ Runs all six test cases in `test/cases/` serially (one worker, one shared profil
 npm run test:explore
 ```
 
-Runs `test/explore.js` — a non-Playwright Node script that navigates to a board, captures screenshots, and dumps DOM diagnostic data to `test/output/`. Use this to inspect a specific board's structure or debug a suspected issue before writing an assertion.
+Runs `test/explore.js` — a non-Playwright Node script that navigates to a board, captures screenshots, and dumps DOM diagnostic data to `test-local/output/`. Use this to inspect a specific board's structure or debug a suspected issue before writing an assertion.
 
 ## Test Cases
 
@@ -63,33 +63,34 @@ Runs `test/explore.js` — a non-Playwright Node script that navigates to a boar
 
 ## Source Files vs. Generated Artifacts
 
-### Committed (source — safe to push)
+### Committed to GitHub (`test/`)
 
 ```
 test/
   TESTING.md            ← this file
-  helpers.js            ← shared test utilities (launchEdge, navigateToBoard, setConfig, …)
+  helpers.js            ← shared utilities (launchEdge, navigateToBoard, setConfig, …)
   playwright.config.js  ← testDir, testMatch, timeout, workers, reporter settings
   explore.js            ← diagnostic script for board investigation
   cases/                ← numbered assertion test files
-package.json
-package-lock.json       ← locks exact Playwright version for reproducibility
 ```
 
-### Gitignored (never commit)
+### Never committed (`test-local/` — gitignored entirely)
 
 ```
-test/.edge-profile/     ← persistent Edge profile; contains auth cookies
-test/output/            ← screenshots and JSON dumps from explore.js runs
-playwright-report/      ← Playwright HTML report (generated at project root)
-test-results/           ← Playwright trace/video artifacts (generated at project root)
+test-local/
+  .edge-profile/        ← persistent Edge profile; contains auth cookies
+  output/               ← screenshots and JSON dumps from explore.js runs
+  playwright-report/    ← Playwright HTML report
+  test-results/         ← Playwright trace/video artifacts
 ```
+
+The split is intentional: everything in `test/` is source that any future session can use immediately after `npm install`. Everything in `test-local/` is either runtime state (auth cookies) or board-specific data that changes with every run.
 
 ## Board Configuration
 
-`test/helpers.js` exports a `BOARD_URL` constant pointing to the primary test board. Tests that need a specific board URL hard-code it locally in `test/explore.js`.
+`test/helpers.js` exports a `BOARD_URL` constant pointing to the primary test board. Tests that need a different board URL set it locally in that file or in `test/explore.js`.
 
-**Never commit a board ID or board-specific output file.** Board IDs are ServiceNow system IDs that identify real boards in your instance. The `test/output/` directory (gitignored) is the correct place for any board-specific data produced by a test run.
+**Never commit a board ID or board-specific output file.** Board IDs are ServiceNow system IDs that identify real boards in your instance. The `test-local/output/` directory is the correct place for any board-specific data produced by a test run.
 
 When you need to test with a different board — for example a larger board with more columns — change the URL in `explore.js` temporarily. Do not change `BOARD_URL` in `helpers.js` unless you are intentionally moving the primary test target.
 
