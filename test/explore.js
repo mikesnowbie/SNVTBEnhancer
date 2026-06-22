@@ -9,7 +9,7 @@ import * as helpers from './helpers.js';
 const OUTPUT_DIR = path.resolve('test-local/output');
 fs.mkdirSync(OUTPUT_DIR, { recursive: true });
 
-const BOARD_URL = helpers.testConfig.testingBoardUrl;
+const BOARD_URL = helpers.BOARD_URL;
 
 const context = await helpers.launchEdge();
 
@@ -52,9 +52,9 @@ try {
 
   fs.writeFileSync(path.join(OUTPUT_DIR, 'board-data.json'), JSON.stringify(data, null, 2));
 
-  // --- Freshness diagnostic (pass 2) ---
-  // Checks whether the extension actually rendered indicators on hidden cards,
-  // and probes AngularJS scope structure to find a reliable timestamp source.
+  // --- Freshness diagnostic ---
+  // Reports whether the extension rendered indicators on virtual-scroll-hidden cards,
+  // and probes the AngularJS scope structure to find a reliable timestamp source.
   const freshnessDiag = await frame.evaluate(() => {
     const cards   = [...document.querySelectorAll('.vtb-card-component-wrapper')];
     const hidden  = cards.filter(c => c.style.display === 'none');
@@ -158,10 +158,10 @@ try {
   console.log(`Total / visible / hidden:      ${d.totalCards} / ${d.visibleCards} / ${d.hiddenCards}`);
   console.log(`\nTimestamp data available:`);
   console.log(`  Visible with any attr:       ${d.visibleWithAnyTimestamp} / ${d.visibleCards}`);
-  console.log(`  Hidden  with any attr:       ${d.hiddenWithAnyTimestamp} / ${d.hiddenCards}  ← key number`);
+  console.log(`  Hidden  with any attr:       ${d.hiddenWithAnyTimestamp} / ${d.hiddenCards}`);
   console.log(`\nExtension coverage after load:`);
   console.log(`  Visible with indicator:      ${d.visibleWithIndicator} / ${d.visibleCards}`);
-  console.log(`  Hidden  with indicator:      ${d.hiddenWithIndicator} / ${d.hiddenCards}  ← did we miss these?`);
+  console.log(`  Hidden  with indicator:      ${d.hiddenWithIndicator} / ${d.hiddenCards}`);
   console.log(`  Visible wrapped:             ${d.visibleWrapped}`);
   console.log(`  Hidden  wrapped:             ${d.hiddenWrapped}`);
   console.log(`\nAngularJS scope walk:`);

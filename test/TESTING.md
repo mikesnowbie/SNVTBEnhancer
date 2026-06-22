@@ -109,11 +109,11 @@ The split is intentional: everything in `test/` is source that any future sessio
 
 ## Board Configuration
 
-`test/helpers.js` exports a `BOARD_URL` constant pointing to the primary test board. Tests that need a different board URL set it locally in that file or in `test/explore.js`.
+The board URL lives in `test-local/config.json` under the `testingBoardUrl` key (created during First-time Setup). `test/helpers.js` reads that file when it loads and exposes the value as the exported `BOARD_URL` constant, which both the assertion tests and `test/explore.js` use.
 
-**Never commit a board ID or board-specific output file.** Board IDs are ServiceNow system IDs that identify real boards in your instance. The `test-local/output/` directory is the correct place for any board-specific data produced by a test run.
+**Never commit a board ID or board-specific output file.** Board IDs are ServiceNow system IDs that identify real boards in your instance. `test-local/` is gitignored in its entirety, so `config.json` and everything under `test-local/output/` stay off GitHub.
 
-When you need to test with a different board — for example a larger board with more columns — change the URL in `explore.js` temporarily. Do not change `BOARD_URL` in `helpers.js` unless you are intentionally moving the primary test target.
+To point the harness at a different board — for example a larger board with more columns — edit `testingBoardUrl` in `test-local/config.json`. No source files need to change.
 
 ## Adding a New Test Case
 
@@ -129,6 +129,6 @@ When you need to test with a different board — for example a larger board with
 
 **Login prompt on every run** — The profile wasn't primed or the session expired. Run `npm run test:explore`, sign in when the window opens, wait for the board to load, then close.
 
-**Tests time out on board load** — The board URL in `helpers.js` may have changed or the board was deleted. Update `BOARD_URL` to a working VTB board URL.
+**Tests time out on board load** — The board may have been deleted or `testingBoardUrl` is wrong. Update `testingBoardUrl` in `test-local/config.json` to a working VTB board URL.
 
 **All cards show "not enhanced"** — The extension content script may not be running. Check `edge://extensions/` to confirm the extension is enabled and that the board URL matches `*://*.service-now.com/*vtb.do*`.

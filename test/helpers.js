@@ -6,8 +6,8 @@ import fs from 'fs';
 const EXTENSION_PATH = path.resolve(fileURLToPath(import.meta.url), '../..');
 const USER_DATA_DIR  = path.resolve(fileURLToPath(import.meta.url), '../../test-local/.edge-profile');
 
-// Board URLs live in test-local/config.json — gitignored, never committed.
-// Copy test/config.example.json to test-local/config.json and fill in your board URLs.
+// The board URL lives in test-local/config.json — gitignored, never committed.
+// Copy test/config.example.json to test-local/config.json and fill in your board URL.
 const CONFIG_PATH = path.resolve(fileURLToPath(import.meta.url), '../../test-local/config.json');
 let testConfig;
 try {
@@ -15,13 +15,13 @@ try {
 } catch {
   throw new Error(
     'test-local/config.json not found.\n' +
-    'Copy test/config.example.json to test-local/config.json and fill in your board URLs.\n' +
+    'Copy test/config.example.json to test-local/config.json and fill in your board URL.\n' +
     `Expected: ${CONFIG_PATH}`
   );
 }
-export { testConfig };
 
-const BOARD_URL = testConfig.testingBoardUrl;
+// Exported so explore.js and any test can reference the same board target.
+export const BOARD_URL = testConfig.testingBoardUrl;
 
 export async function launchEdge() {
   return chromium.launchPersistentContext(USER_DATA_DIR, {
