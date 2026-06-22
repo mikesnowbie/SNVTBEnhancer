@@ -1,8 +1,9 @@
-const fs = require('fs');
+import { readFileSync, writeFileSync } from 'fs';
+
 const isMinor = process.argv.includes('--minor');
 
-function bumpManifest(path) {
-  const manifest = JSON.parse(fs.readFileSync(path, 'utf8'));
+function bumpManifest(filePath) {
+  const manifest = JSON.parse(readFileSync(filePath, 'utf8'));
   const parts = manifest.version.split('.').map(Number);
   if (isMinor) {
     parts[1]++;
@@ -11,7 +12,7 @@ function bumpManifest(path) {
     parts[2]++;
   }
   manifest.version = parts.join('.');
-  fs.writeFileSync(path, JSON.stringify(manifest, null, 2) + '\n');
+  writeFileSync(filePath, JSON.stringify(manifest, null, 2) + '\n');
   return manifest.version;
 }
 
