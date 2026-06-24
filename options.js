@@ -412,7 +412,7 @@ document.addEventListener('DOMContentLoaded', function () {
     boardSelect.innerHTML = '';
     const defaultOption = document.createElement('option');
     defaultOption.value = '';
-    defaultOption.textContent = 'Default (All Boards)';
+    defaultOption.textContent = 'Global Defaults';
     boardSelect.appendChild(defaultOption);
     Object.keys(fullConfig.boards).forEach((id) => {
       const opt = document.createElement('option');
