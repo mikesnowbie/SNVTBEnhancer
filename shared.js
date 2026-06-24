@@ -147,13 +147,13 @@ const VTBShared = (function () {
 
       if (!boardCfg.sle || typeof boardCfg.sle !== 'object') {
         boardCfg.sle = {
-          enabled: true, days: 0, approachingDays: 3,
+          enabled: false, days: 7, approachingDays: 3,
           showSummary: true, showBadgeEmojis: true, showBadgeBorder: true,
           approachingEmoji: '⚠️', breachedEmoji: '🔴',
         };
       } else {
-        if (typeof boardCfg.sle.enabled !== 'boolean') boardCfg.sle.enabled = true;
-        if (typeof boardCfg.sle.days !== 'number' || boardCfg.sle.days < 0) boardCfg.sle.days = 0;
+        if (typeof boardCfg.sle.enabled !== 'boolean') boardCfg.sle.enabled = false;
+        if (typeof boardCfg.sle.days !== 'number' || boardCfg.sle.days < 1) boardCfg.sle.days = 7;
         if (typeof boardCfg.sle.approachingDays !== 'number' || boardCfg.sle.approachingDays < 0) boardCfg.sle.approachingDays = 3;
         if (typeof boardCfg.sle.showSummary !== 'boolean') boardCfg.sle.showSummary = true;
         const legacyEscalation = typeof boardCfg.sle.showBadgeEscalation === 'boolean' ? boardCfg.sle.showBadgeEscalation : true;
@@ -371,8 +371,8 @@ const VTBShared = (function () {
     }
     if (incoming.sle && typeof incoming.sle === 'object') {
       target.sle = {
-        enabled: typeof incoming.sle.enabled === 'boolean' ? incoming.sle.enabled : true,
-        days: typeof incoming.sle.days === 'number' && incoming.sle.days >= 0 ? incoming.sle.days : 0,
+        enabled: typeof incoming.sle.enabled === 'boolean' ? incoming.sle.enabled : false,
+        days: typeof incoming.sle.days === 'number' && incoming.sle.days > 0 ? incoming.sle.days : 7,
         approachingDays: typeof incoming.sle.approachingDays === 'number' && incoming.sle.approachingDays >= 0 ? incoming.sle.approachingDays : 3,
         showSummary: typeof incoming.sle.showSummary === 'boolean' ? incoming.sle.showSummary : true,
         showBadgeEmojis: typeof incoming.sle.showBadgeEmojis === 'boolean' ? incoming.sle.showBadgeEmojis : (typeof incoming.sle.showBadgeEscalation === 'boolean' ? incoming.sle.showBadgeEscalation : true),

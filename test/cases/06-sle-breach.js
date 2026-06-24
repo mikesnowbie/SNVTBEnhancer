@@ -68,7 +68,7 @@ test('breach emoji appears on badges when cards exceed SLE target', async () => 
 test('no breach indicators when SLE is disabled', async () => {
   const cfg = helpers.defaultConfig();
   cfg.boards[boardId] = {
-    sle: { enabled: false, days: 0 },
+    sle: { enabled: false, days: 7 },
   };
 
   await helpers.setConfig(context, extensionId, cfg);
