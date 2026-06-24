@@ -11,9 +11,11 @@
     configurable day target via badge emoji, colored border, and summary bar counts.
 */
 (function () {
-  if (!window.location.href.includes('vtb.do')) return;
+  const href = window.location.href;
+  if (!href.includes('vtb.do') && !href.includes('agile_board.do')) return;
 
-  const boardIdMatch = window.location.pathname.includes('$vtb.do')
+  const isVtbUrl = window.location.pathname.includes('$vtb.do') || window.location.pathname.includes('agile_board.do');
+  const boardIdMatch = isVtbUrl
     ? window.location.search.match(/[?&]sysparm_board=([^&]+)/)
     : null;
   const boardId = boardIdMatch ? boardIdMatch[1] : null;
