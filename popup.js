@@ -19,13 +19,17 @@
   }
 
   function getBoardIdFromUrl(url) {
-    if (!url || !url.includes('vtb.do')) return null;
+    if (!url || (!url.includes('vtb.do') && !url.includes('agile_board.do'))) return null;
     // ServiceNow's navigation shell URL-encodes the inner URL, so sysparm_board=
     // may appear as sysparm_board%3D. Decode before parsing.
     let decoded = url;
     try { decoded = decodeURIComponent(url); } catch (_) {}
     const m = decoded.match(/sysparm_board=([^&]+)/);
     return m ? m[1] : null;
+  }
+
+  function isKnownBoardPage(url) {
+    return !!url && (url.includes('vtb.do') || url.includes('agile_board.do'));
   }
 
   function openOptions(boardId) {
@@ -182,6 +186,10 @@
           setAreasMessage('Board is still loading — click ↺ to retry.');
           return;
         }
+        if (!currentBoardId && response.boardId) {
+          currentBoardId = response.boardId;
+          document.getElementById('thisBoardSettingsBtn').disabled = false;
+        }
         renderDashboard(response);
       });
     });
@@ -220,9 +228,8 @@
       currentTab = tabs[0] || null;
       const url = currentTab ? currentTab.url : null;
       currentBoardId = getBoardIdFromUrl(url);
-      const isVtbPage = !!currentBoardId;
 
-      if (!isVtbPage) {
+      if (!isKnownBoardPage(url)) {
         document.getElementById('nonVtbNotice').style.display = '';
         document.getElementById('boardNameDisplay').textContent = 'Not on a VTB page';
         return;

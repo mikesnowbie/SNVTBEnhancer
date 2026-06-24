@@ -131,4 +131,4 @@ To point the harness at a different board — for example a larger board with mo
 
 **Tests time out on board load** — The board may have been deleted or `testingBoardUrl` is wrong. Update `testingBoardUrl` in `test-local/config.json` to a working VTB board URL.
 
-**All cards show "not enhanced"** — The extension content script may not be running. Check `edge://extensions/` to confirm the extension is enabled and that the board URL matches `*://*.service-now.com/*vtb.do*`.
+**All cards show "not enhanced"** — The extension content script may not be running. Check `edge://extensions/` to confirm the extension is enabled and that the board URL matches `*://*.service-now.com/*vtb.do*` or `*://*.service-now.com/*agile_board.do*`.

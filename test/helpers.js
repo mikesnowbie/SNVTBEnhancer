@@ -112,14 +112,14 @@ export async function setConfig(context, extensionId, cfg) {
 // is required, waits up to 5 minutes for the user to log in before continuing.
 export async function navigateToBoard(context, url) {
   const page = await context.newPage();
-  const isVtb = u => /service-now\.com.*vtb\.do/.test(u);
+  const isOnServiceNow = u => { try { return new URL(u).hostname.endsWith('.service-now.com'); } catch { return false; } };
 
   await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30_000 }).catch(() => null);
 
-  if (!isVtb(page.url())) {
+  if (!isOnServiceNow(page.url())) {
     console.log('  Session expired — please log in. Waiting up to 5 minutes...');
     await page.waitForFunction(
-      () => /service-now\.com.*vtb\.do/.test(window.location.href),
+      () => window.location.hostname.endsWith('.service-now.com'),
       { timeout: 5 * 60 * 1000 }
     );
   }
@@ -152,11 +152,11 @@ export async function waitForVtbPage(context) {
   return navigateToBoard(context, BOARD_URL);
 }
 
-// The content script runs in the inner $vtb.do iframe, not the outer Now nav shell.
-// The outer shell URL encodes vtb.do as %24vtb.do in a query param — we skip that
-// and look only at child frames whose URL directly serves $vtb.do as a path.
+// The content script runs in the inner $vtb.do or $agile_board.do iframe, not the
+// outer Now nav shell. The outer shell URL encodes the board path as a query param —
+// we skip that and look only at child frames whose URL directly serves the board as a path.
 export async function getVtbFrame(page, timeout = 30_000) {
-  const isInnerVtb = url => /\/\$?vtb\.do(\?|&|$)/.test(url);
+  const isInnerVtb = url => /\/\$?(vtb|agile_board)\.do(\?|&|$)/.test(url);
   const deadline = Date.now() + timeout;
 
   while (Date.now() < deadline) {
@@ -187,7 +187,7 @@ export async function waitForBoardEnhanced(page, timeout = 60_000) {
 // For explore mode: waits for the board to load, then gives the extension time to run.
 // Does NOT require any cards to be enhanced — captures state as-is.
 export async function waitForBoardLoaded(page, timeout = 60_000) {
-  const frame = await getVtbFrame(page);
+  const frame = await getVtbFrame(page, timeout);
   console.log(`  [waitForBoardLoaded] frame URL: ${frame.url()}`);
 
   const found = await frame.waitForFunction(
@@ -196,7 +196,17 @@ export async function waitForBoardLoaded(page, timeout = 60_000) {
   ).then(() => true).catch(() => false);
 
   if (!found) {
-    console.log('  [waitForBoardLoaded] No .vtb-card-component-wrapper found — board may use different selectors or have no cards');
+    console.log('  [waitForBoardLoaded] No .vtb-card-component-wrapper found — probing DOM for card/lane class names...');
+    const domProbe = await frame.evaluate(() => {
+      const allClasses = new Set();
+      document.querySelectorAll('*').forEach(el => el.classList.forEach(c => allClasses.add(c)));
+      const cardLike = [...allClasses].filter(c => /card|task|story|issue|item|ticket|work.?item/i.test(c)).sort();
+      const laneLike = [...allClasses].filter(c => /lane|column|swim|sprint|board/i.test(c)).sort();
+      return { cardLike, laneLike, totalClasses: allClasses.size };
+    });
+    console.log(`  DOM class probe (${domProbe.totalClasses} total classes):`);
+    console.log(`    Card-like: ${domProbe.cardLike.join(', ') || '(none)'}`);
+    console.log(`    Lane-like: ${domProbe.laneLike.join(', ') || '(none)'}`);
   } else {
     const count = await frame.evaluate(
       () => document.querySelectorAll('.vtb-card-component-wrapper').length

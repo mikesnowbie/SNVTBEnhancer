@@ -13,7 +13,7 @@
 - Vanilla JavaScript — no build step, no bundler, no framework, no npm dependencies beyond the version bump script.
 - Manifest V3 (`manifest.json`).
 - `chrome.storage.sync` for persisting per-board and global configuration.
-- The extension only runs on URLs matching `*://*.service-now.com/*vtb.do*`.
+- The extension runs on URLs matching `*://*.service-now.com/*vtb.do*` and `*://*.service-now.com/*agile_board.do*`.
 
 ## Key Files
 
@@ -25,6 +25,12 @@
 | `options.html` / `options.js` | Extension options UI (age bands, freshness threshold, emojis) |
 | `popup.html` / `popup.js` | Toolbar popup — board health dashboard and quick settings navigation |
 | `bump-version.js` | Node script that increments the patch version in `manifest.json`; runs in CI only |
+| `test/TESTING.md` | Full testing guide — setup, running tests, adding cases, troubleshooting |
+| `test/helpers.js` | Shared Playwright utilities: `launchEdge`, `navigateToBoard`, `waitForBoardEnhanced`, `setConfig` |
+| `test/playwright.config.js` | Playwright config — testDir, timeout, single worker, HTML reporter |
+| `test/explore.js` | Diagnostic script: navigates to a board, captures screenshots, dumps DOM data to `test-local/output/` |
+| `test/cases/` | Numbered assertion test files (01–06); each covers one enhancement feature |
+| `test-local/` | Gitignored runtime dir: Edge profile (auth cookies), board config, screenshots, reports |
 
 ## Git & PR Workflow
 
@@ -48,13 +54,41 @@
 
 ## Testing
 
-There are no automated tests. The extension runs inside ServiceNow, which is a live SaaS environment we cannot replicate locally. Testing means:
+The project has a **Playwright testing harness** that drives a real Microsoft Edge browser with the extension loaded against a live ServiceNow board. There is no mocked environment. See `test/TESTING.md` for the full guide.
 
-1. Loading the unpacked extension in Edge (`edge://extensions/` → Developer Mode → Load unpacked).
-2. Navigating to a real ServiceNow VTB URL (`*service-now.com/*vtb.do*`).
-3. Verifying badges render correctly, options persist, and no console errors appear.
+### Quick reference
 
-When making changes, document what was manually verified in the PR body.
+```bash
+npm install              # once per machine after pulling
+npm run test:explore     # diagnostic: screenshot + DOM dump to test-local/output/
+npm run test:assert      # run all six assertion test cases
+```
+
+The board URL is stored in **`test-local/config.json`** (gitignored — never committed):
+
+```json
+{ "testingBoardUrl": "https://YOUR-INSTANCE.service-now.com/..." }
+```
+
+### When to use each tool
+
+| Situation | Tool |
+|---|---|
+| Investigating a new board layout, unfamiliar DOM structure, or debugging why an enhancement isn't rendering | `npm run test:explore` |
+| Verifying a bug fix or new feature works end-to-end | `npm run test:assert` |
+| Testing against a different board (e.g. `agile_board.do`) | Update `testingBoardUrl` in `test-local/config.json`, then run explore first, then assert |
+
+### First-time setup
+
+1. `npm install`
+2. `mkdir -p test-local && cp test/config.example.json test-local/config.json` — fill in your board URL
+3. `npm run test:explore` — sign in when Edge opens; close once the board loads; session is saved to `test-local/.edge-profile/`
+
+### Adding a new test case
+
+Create `test/cases/07-your-feature.js`, import from `@playwright/test` and `../helpers.js`, use `helpers.launchEdge()` / `helpers.waitForBoardEnhanced()` / `helpers.setConfig()`, and call `context.close()` in `afterAll`. See `test/TESTING.md` for the full pattern.
+
+When making changes, document what was manually verified (or which test cases passed) in the PR body.
 
 ## Coding Conventions
 
