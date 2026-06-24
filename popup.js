@@ -224,6 +224,42 @@
       }
     });
 
+    const importBtn = document.getElementById('importBtn');
+    const importFileInput = document.getElementById('importFileInput');
+    const importStatus = document.getElementById('importStatus');
+
+    function showImportStatus(msg, type) {
+      importStatus.textContent = msg;
+      importStatus.className = 'import-status ' + type;
+      importStatus.style.display = '';
+      if (type === 'success') {
+        setTimeout(function () { importStatus.style.display = 'none'; }, 4000);
+      }
+    }
+
+    importBtn.addEventListener('click', function () {
+      importFileInput.value = '';
+      importFileInput.click();
+    });
+
+    importFileInput.addEventListener('change', function () {
+      const file = importFileInput.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function (e) {
+        const { error, config } = VTBShared.importBoardConfig(e.target.result, fullConfig, currentBoardId);
+        if (error) {
+          showImportStatus(error, 'error');
+        } else {
+          fullConfig = config;
+          VTBShared.saveConfig(fullConfig, function () {
+            showImportStatus('Config imported — reload the board to apply changes.', 'success');
+          });
+        }
+      };
+      reader.readAsText(file);
+    });
+
     chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
       currentTab = tabs[0] || null;
       const url = currentTab ? currentTab.url : null;

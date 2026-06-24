@@ -123,6 +123,9 @@
     }
     .footer-btn:hover { text-decoration: underline; }
     .copied-msg { color: #38a169; font-size: 12px; }
+    .import-status { font-size: 11px; margin-top: 7px; text-align: center; }
+    .import-status.success { color: #38a169; }
+    .import-status.error { color: #c53030; }
   </style>
 </head>
 <body>
@@ -171,7 +174,12 @@
   </div>
 
   <div class="section" id="exportSection" style="display:none">
-    <button class="btn btn-secondary btn-full" id="exportBtn">Export This Board's Config</button>
+    <div class="btn-row">
+      <button class="btn btn-secondary" id="exportBtn">Export Config</button>
+      <button class="btn btn-secondary" id="importBtn">Import Config</button>
+    </div>
+    <div id="importStatus" style="display:none"></div>
+    <input type="file" id="importFileInput" accept=".json" style="display:none">
   </div>
 
   <div class="footer">
