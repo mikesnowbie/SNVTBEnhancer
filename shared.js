@@ -153,7 +153,12 @@ const VTBShared = (function () {
         };
       } else {
         if (typeof boardCfg.sle.enabled !== 'boolean') boardCfg.sle.enabled = false;
-        if (typeof boardCfg.sle.days !== 'number' || boardCfg.sle.days < 1) boardCfg.sle.days = 7;
+        if (typeof boardCfg.sle.days !== 'number' || boardCfg.sle.days < 1) {
+          // days < 1 was the old "effectively off" sentinel (default was days: 0).
+          // Treat it as disabled rather than silently activating a 7-day target.
+          boardCfg.sle.days = 7;
+          boardCfg.sle.enabled = false;
+        }
         if (typeof boardCfg.sle.approachingDays !== 'number' || boardCfg.sle.approachingDays < 0) boardCfg.sle.approachingDays = 3;
         if (typeof boardCfg.sle.showSummary !== 'boolean') boardCfg.sle.showSummary = true;
         const legacyEscalation = typeof boardCfg.sle.showBadgeEscalation === 'boolean' ? boardCfg.sle.showBadgeEscalation : true;

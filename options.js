@@ -504,12 +504,15 @@ document.addEventListener('DOMContentLoaded', function () {
     const enableAgeBadgePrefix = ageBadgePrefixToggle.checked;
     const ageBadgePrefix = (ageBadgePrefixInput.value || '').trimEnd();
     if (currentBoardId) {
-      const sleValues = getSleFromInputs();
-      if (sleValues.enabled && sleValues.days < 1) {
-        statusDiv.textContent = 'SLE target must be greater than 0 when SLE is enabled.';
-        sleDaysInput.focus();
-        return;
+      if (sleToggle.checked) {
+        const rawSleDays = parseInt(sleDaysInput.value, 10);
+        if (isNaN(rawSleDays) || rawSleDays < 1) {
+          statusDiv.textContent = 'SLE target must be greater than 0 when SLE is enabled.';
+          sleDaysInput.focus();
+          return;
+        }
       }
+      const sleValues = getSleFromInputs();
 
       if (!fullConfig.boards[currentBoardId]) {
         fullConfig.boards[currentBoardId] = {
