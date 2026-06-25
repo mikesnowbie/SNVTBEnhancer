@@ -874,47 +874,50 @@
       }
       const wipCount = wipActive ? countCardsInWipLanes(totalWip.lanes) : 0;
 
+      const pillBase = 'display:inline-flex;align-items:center;border-radius:20px;padding:3px 12px;font-size:12px;font-weight:500;white-space:nowrap;line-height:1.4;';
+      const pillNeutral = pillBase + 'background:#f0f4f8;border:1px solid #e2e8f0;color:#4a5568;';
+      const pillRed = pillBase + 'background:#fdecea;border:1px solid #e9a0a0;color:#a32d2d;';
+      const pillAmber = pillBase + 'background:#fef3c7;border:1px solid #fbbf24;color:#854f0b;';
+
       const parts = [];
-      if (wipActive) parts.push(`<span><strong>Total WIP: ${wipCount}</strong></span>`);
+      if (wipActive) {
+        parts.push(`<span style="${pillNeutral}">Total WIP · ${wipCount}</span>`);
+      }
       if (sleActive) {
         const showEmojis = sle.showBadgeEmojis !== false;
-        const showBorder = sle.showBadgeBorder !== false;
         const breachedSymbol = showEmojis ? escHtml(sle.breachedEmoji || '🔴') : '▲';
         const approachingSymbol = showEmojis ? escHtml(sle.approachingEmoji || '⚠️') : '⚠';
-        const breachedStyle = 'color:#c0392b;' +
-          (showBorder ? ' outline:2px solid #c0392b; outline-offset:2px; border-radius:4px; padding:1px 6px;' : '');
-        const approachingStyle = 'color:#e67e22;' +
-          (showBorder ? ' outline:2px dashed #e67e22; outline-offset:2px; border-radius:4px; padding:1px 6px;' : '');
-        parts.push(`<span>SLE: ${sle.days}d</span>`);
-        parts.push(`<span style="${breachedStyle}">${breachedSymbol} ${over} breached</span>`);
-        parts.push(`<span style="${approachingStyle}">${approachingSymbol} ${approaching} approaching</span>`);
+        parts.push(`<span style="${pillNeutral}">SLE · ${sle.days}d</span>`);
+        parts.push(`<span style="${over > 0 ? pillRed : pillNeutral}">${breachedSymbol} ${over} breached</span>`);
+        parts.push(`<span style="${approaching > 0 ? pillAmber : pillNeutral}">${approachingSymbol} ${approaching} approaching</span>`);
       }
-
-      const bgColor = sleActive && over > 0 ? '#fdecea' : sleActive ? '#fff8e1' : '#ebf8ff';
-      const borderColor = sleActive && over > 0 ? '#c0392b' : sleActive ? '#f39c12' : '#bee3f8';
 
       const bar = existing || document.createElement('div');
       bar.id = 'vtb-enhancer-sle-bar';
-      Object.assign(bar.style, {
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: '10px',
-        padding: '6px 10px',
-        backgroundColor: bgColor,
-        border: `1px solid ${borderColor}`,
-        borderRadius: '4px',
-        fontSize: '12px',
-        fontWeight: '500',
-        marginLeft: '12px',
-        verticalAlign: 'middle',
-        lineHeight: '1.4',
-      });
+      bar.style.cssText = 'display:inline-flex;align-items:center;gap:6px;margin-left:12px;vertical-align:middle;align-self:center;';
       bar.innerHTML = parts.join('');
 
       if (!existing) {
         const label = document.querySelector('label.sn-navhub-title');
-        if (label && label.parentNode) {
-          label.parentNode.insertBefore(bar, label.nextSibling);
+        if (label) {
+          // Walk up from the label past at least one level, then continue until
+          // we find an ancestor whose parent is a horizontal flex container.
+          // That ancestor is the "title section" (board name + "Freeform Board"
+          // subtitle as a unit). Inserting the bar as a peer of the title section
+          // in the outer flex row lets the row's alignment center the bar across
+          // the full two-line height, matching the filter controls on the right.
+          let titleSection = label.parentElement && label.parentElement.parentElement;
+          while (titleSection && titleSection.parentElement && titleSection.parentElement !== document.body) {
+            try {
+              const ps = window.getComputedStyle(titleSection.parentElement);
+              const dir = ps.flexDirection || 'row';
+              if ((ps.display === 'flex' || ps.display === 'inline-flex') && !dir.includes('column')) break;
+            } catch (_) {}
+            titleSection = titleSection.parentElement;
+          }
+          const host = titleSection && titleSection.parentElement ? titleSection.parentElement : label.parentNode;
+          const ref  = titleSection && titleSection.parentElement ? titleSection : label;
+          host.insertBefore(bar, ref.nextSibling);
         }
       }
     }
