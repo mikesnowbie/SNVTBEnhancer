@@ -82,6 +82,7 @@ Runs `test/explore.js` — a non-Playwright Node script that navigates to a boar
 | `cases/05-summary-bar.js` | SLE summary bar appears when SLE is enabled; is absent when disabled |
 | `cases/06-sle-breach.js` | Breached cards show the breach emoji and red outline; no indicators when SLE is disabled |
 | `cases/07-freshness-count-complete.js` | Popup freshness total counts every in-DOM card at load (no scrolling needed), even when most lanes are virtual-scroll hidden |
+| `cases/08-wip-freshness-hidden.js` | WIP-lane freshness restriction counts off-screen (display:none) cards in the configured lanes; restricting to all lanes equals no restriction |
 
 ## Source Files vs. Generated Artifacts
 

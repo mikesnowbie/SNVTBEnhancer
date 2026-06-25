@@ -29,7 +29,7 @@
 | `test/helpers.js` | Shared Playwright utilities: `launchEdge`, `navigateToBoard`, `waitForBoardEnhanced`, `setConfig` |
 | `test/playwright.config.js` | Playwright config — testDir, timeout, single worker, HTML reporter |
 | `test/explore.js` | Diagnostic script: navigates to a board, captures screenshots, dumps DOM data to `test-local/output/` |
-| `test/cases/` | Numbered assertion test files (01–07); each covers one enhancement feature |
+| `test/cases/` | Numbered assertion test files (01–08); each covers one enhancement feature |
 | `test-local/` | Gitignored runtime dir: Edge profile (auth cookies), board config, screenshots, reports |
 
 ## Git & PR Workflow

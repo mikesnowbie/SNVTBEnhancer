@@ -82,11 +82,55 @@
   // .vtb-lane-header-title is found under the current ancestor (i.e. we're
   // inside one lane's container). If that number exceeds one we've climbed above
   // the lane boundary and fall back to positional matching.
+  // Maps each lane's positional index (the v-lane-index attribute ServiceNow
+  // puts on both the header-side and body-side lane elements) to its display
+  // name, read from the lane header titles. ServiceNow renders lane headers and
+  // lane bodies as separate DOM subtrees that share v-lane-index / lane id, so a
+  // card's body subtree contains no header to read directly. Cached and rebuilt
+  // when the lane count changes.
+  let laneIndexNameCache = null;
+  let laneIndexNameCacheCount = -1;
+  function getLaneIndexNameMap() {
+    const headers = document.querySelectorAll(LANE_TITLE_SELECTORS[0]);
+    if (laneIndexNameCache && laneIndexNameCacheCount === headers.length) {
+      return laneIndexNameCache;
+    }
+    const map = Object.create(null);
+    headers.forEach((titleEl) => {
+      let el = titleEl;
+      while (el && el !== document.body) {
+        const idx = el.getAttribute && el.getAttribute('v-lane-index');
+        if (idx) {
+          const name = getLaneTitleText(titleEl);
+          if (name) map[idx] = name;
+          break;
+        }
+        el = el.parentElement;
+      }
+    });
+    laneIndexNameCache = map;
+    laneIndexNameCacheCount = headers.length;
+    return map;
+  }
+
   function findCardLane(card) {
+    const indexMap = getLaneIndexNameMap();
     const primarySel = LANE_TITLE_SELECTORS[0]; // '.vtb-lane-header-title'
     let el = card.parentElement;
     while (el && el !== document.body) {
       try {
+        if (el.getAttribute) {
+          // Structural markers on the card's lane container — these work even
+          // when the card is scrolled off-screen (display:none → no geometry),
+          // which positional matching cannot handle.
+          const idx = el.getAttribute('v-lane-index');
+          if (idx && indexMap[idx]) return indexMap[idx];
+          const ariaLabel = el.getAttribute('aria-label');
+          if (ariaLabel) {
+            const m = ariaLabel.match(/^Cards in lane:\s*(.+)$/);
+            if (m) return m[1].trim();
+          }
+        }
         const matches = el.querySelectorAll(primarySel);
         if (matches.length === 1) {
           const text = getLaneTitleText(matches[0]);
@@ -98,9 +142,9 @@
       } catch (_) {}
       el = el.parentElement;
     }
-    // Walk-up could not isolate a single-lane ancestor — fall back to positional
+    // Walk-up could not isolate the lane structurally — fall back to positional
     // matching (works for boards where headers and card columns are in parallel
-    // DOM branches, e.g. sticky-header layouts).
+    // DOM branches, e.g. sticky-header layouts, for cards currently on-screen).
     return findCardLaneByPosition(card);
   }
 
