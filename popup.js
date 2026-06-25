@@ -19,13 +19,17 @@
   }
 
   function getBoardIdFromUrl(url) {
-    if (!url || !url.includes('vtb.do')) return null;
+    if (!url || (!url.includes('vtb.do') && !url.includes('agile_board.do'))) return null;
     // ServiceNow's navigation shell URL-encodes the inner URL, so sysparm_board=
     // may appear as sysparm_board%3D. Decode before parsing.
     let decoded = url;
     try { decoded = decodeURIComponent(url); } catch (_) {}
     const m = decoded.match(/sysparm_board=([^&]+)/);
     return m ? m[1] : null;
+  }
+
+  function isKnownBoardPage(url) {
+    return !!url && (url.includes('vtb.do') || url.includes('agile_board.do'));
   }
 
   function openOptions(boardId) {
@@ -103,8 +107,7 @@
       `<div class="stat-row">` +
       `<span>${escHtml(data.staleEmoji)} Stale</span><strong>${data.staleCount}</strong>` +
       `</div>` +
-      `<div class="stat-hint">Stale after ${data.updateThresholdDays} days without update</div>` +
-    `<div class="stat-hint">Counts update as ServiceNow loads each lane — scroll through all lanes for a complete total.</div>`;
+      `<div class="stat-hint">Stale after ${data.updateThresholdDays} days without update</div>`;
   }
 
   function renderSleArea(data) {
@@ -131,7 +134,24 @@
       `</div>`;
   }
 
+  function renderPartialNotice(data) {
+    const el = document.getElementById('partialNotice');
+    const total = typeof data.boardCardTotal === 'number' ? data.boardCardTotal : 0;
+    const rendered = typeof data.renderedCardCount === 'number' ? data.renderedCardCount : 0;
+    // Only flag when we have a trustworthy board total and the board has not
+    // rendered all of its cards yet — every tally below is partial until then.
+    if (total > 0 && rendered < total) {
+      el.textContent =
+        `⏳ Showing ${rendered} of ${total} cards. ServiceNow loads cards as you ` +
+        `scroll — scroll through every lane to load them all for complete totals.`;
+      el.style.display = '';
+    } else {
+      el.style.display = 'none';
+    }
+  }
+
   function renderDashboard(data) {
+    renderPartialNotice(data);
     renderWipArea(data);
     renderAgeArea(data);
     renderFreshnessArea(data);
@@ -182,6 +202,10 @@
           setAreasMessage('Board is still loading — click ↺ to retry.');
           return;
         }
+        if (!currentBoardId && response.boardId) {
+          currentBoardId = response.boardId;
+          document.getElementById('thisBoardSettingsBtn').disabled = false;
+        }
         renderDashboard(response);
       });
     });
@@ -216,13 +240,48 @@
       }
     });
 
+    const importBtn = document.getElementById('importBtn');
+    const importFileInput = document.getElementById('importFileInput');
+    const importStatus = document.getElementById('importStatus');
+
+    function showImportStatus(msg, type) {
+      importStatus.textContent = msg;
+      importStatus.className = 'import-status ' + type;
+      importStatus.style.display = '';
+      if (type === 'success') {
+        setTimeout(function () { importStatus.style.display = 'none'; }, 4000);
+      }
+    }
+
+    importBtn.addEventListener('click', function () {
+      importFileInput.value = '';
+      importFileInput.click();
+    });
+
+    importFileInput.addEventListener('change', function () {
+      const file = importFileInput.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function (e) {
+        const { error, config } = VTBShared.importBoardConfig(e.target.result, fullConfig, currentBoardId);
+        if (error) {
+          showImportStatus(error, 'error');
+        } else {
+          fullConfig = config;
+          VTBShared.saveConfig(fullConfig, function () {
+            showImportStatus('Config imported — reload the board to apply changes.', 'success');
+          });
+        }
+      };
+      reader.readAsText(file);
+    });
+
     chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
       currentTab = tabs[0] || null;
       const url = currentTab ? currentTab.url : null;
       currentBoardId = getBoardIdFromUrl(url);
-      const isVtbPage = !!currentBoardId;
 
-      if (!isVtbPage) {
+      if (!isKnownBoardPage(url)) {
         document.getElementById('nonVtbNotice').style.display = '';
         document.getElementById('boardNameDisplay').textContent = 'Not on a VTB page';
         return;

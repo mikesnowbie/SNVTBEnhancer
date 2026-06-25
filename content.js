@@ -11,9 +11,11 @@
     configurable day target via badge emoji, colored border, and summary bar counts.
 */
 (function () {
-  if (!window.location.href.includes('vtb.do')) return;
+  const href = window.location.href;
+  if (!href.includes('vtb.do') && !href.includes('agile_board.do')) return;
 
-  const boardIdMatch = window.location.pathname.includes('$vtb.do')
+  const isVtbUrl = window.location.pathname.includes('$vtb.do') || window.location.pathname.includes('agile_board.do');
+  const boardIdMatch = isVtbUrl
     ? window.location.search.match(/[?&]sysparm_board=([^&]+)/)
     : null;
   const boardId = boardIdMatch ? boardIdMatch[1] : null;
@@ -80,11 +82,55 @@
   // .vtb-lane-header-title is found under the current ancestor (i.e. we're
   // inside one lane's container). If that number exceeds one we've climbed above
   // the lane boundary and fall back to positional matching.
+  // Maps each lane's positional index (the v-lane-index attribute ServiceNow
+  // puts on both the header-side and body-side lane elements) to its display
+  // name, read from the lane header titles. ServiceNow renders lane headers and
+  // lane bodies as separate DOM subtrees that share v-lane-index / lane id, so a
+  // card's body subtree contains no header to read directly. Cached and rebuilt
+  // when the lane count changes.
+  let laneIndexNameCache = null;
+  let laneIndexNameCacheCount = -1;
+  function getLaneIndexNameMap() {
+    const headers = document.querySelectorAll(LANE_TITLE_SELECTORS[0]);
+    if (laneIndexNameCache && laneIndexNameCacheCount === headers.length) {
+      return laneIndexNameCache;
+    }
+    const map = Object.create(null);
+    headers.forEach((titleEl) => {
+      let el = titleEl;
+      while (el && el !== document.body) {
+        const idx = el.getAttribute && el.getAttribute('v-lane-index');
+        if (idx) {
+          const name = getLaneTitleText(titleEl);
+          if (name) map[idx] = name;
+          break;
+        }
+        el = el.parentElement;
+      }
+    });
+    laneIndexNameCache = map;
+    laneIndexNameCacheCount = headers.length;
+    return map;
+  }
+
   function findCardLane(card) {
+    const indexMap = getLaneIndexNameMap();
     const primarySel = LANE_TITLE_SELECTORS[0]; // '.vtb-lane-header-title'
     let el = card.parentElement;
     while (el && el !== document.body) {
       try {
+        if (el.getAttribute) {
+          // Structural markers on the card's lane container — these work even
+          // when the card is scrolled off-screen (display:none → no geometry),
+          // which positional matching cannot handle.
+          const idx = el.getAttribute('v-lane-index');
+          if (idx && indexMap[idx]) return indexMap[idx];
+          const ariaLabel = el.getAttribute('aria-label');
+          if (ariaLabel) {
+            const m = ariaLabel.match(/^Cards in lane:\s*(.+)$/);
+            if (m) return m[1].trim();
+          }
+        }
         const matches = el.querySelectorAll(primarySel);
         if (matches.length === 1) {
           const text = getLaneTitleText(matches[0]);
@@ -96,9 +142,9 @@
       } catch (_) {}
       el = el.parentElement;
     }
-    // Walk-up could not isolate a single-lane ancestor — fall back to positional
+    // Walk-up could not isolate the lane structurally — fall back to positional
     // matching (works for boards where headers and card columns are in parallel
-    // DOM branches, e.g. sticky-header layouts).
+    // DOM branches, e.g. sticky-header layouts, for cards currently on-screen).
     return findCardLaneByPosition(card);
   }
 
@@ -746,7 +792,11 @@
     // lane) for the designated WIP lanes and sums them. This is more reliable than counting
     // card DOM elements ourselves because ServiceNow tracks all cards in each lane — including
     // those hidden off-screen by the virtual scroll — and keeps this count current.
-    function countCardsInWipLanes(wipLaneNames) {
+    // Sums the per-lane card counts ServiceNow renders in each lane header for
+    // every lane whose name passes includeLane(). The lane header count reflects
+    // all cards in the lane — including those not yet rendered by the virtual
+    // scroll — so it is the authoritative board total even before cards load.
+    function sumLaneCardCounts(includeLane) {
       let total = 0;
 
       for (const sel of LANE_TITLE_SELECTORS) {
@@ -754,7 +804,7 @@
         try {
           document.querySelectorAll(sel).forEach((titleEl) => {
             const name = getLaneTitleText(titleEl);
-            if (!name || !wipLaneNames.includes(name)) return;
+            if (!name || !includeLane(name)) return;
 
             // Walk up from the lane title to find the lane header container that also
             // holds the count element as a sibling. Stop before climbing above the lane
@@ -781,6 +831,18 @@
         if (anyFound) break;
       }
       return total;
+    }
+
+    function countCardsInWipLanes(wipLaneNames) {
+      return sumLaneCardCounts((name) => wipLaneNames.includes(name));
+    }
+
+    // Authoritative total card count across every lane, from the lane header
+    // counts. Used to detect when the board has not finished rendering all
+    // cards (rendered card wrappers < this total), so the popup can flag that
+    // its tallies are still partial. Returns 0 if no lane counts are found.
+    function countAllLaneCards() {
+      return sumLaneCardCounts(() => true);
     }
 
     // Renders (or removes) the summary bar near the board title for SLE and/or Total WIP.
@@ -812,47 +874,50 @@
       }
       const wipCount = wipActive ? countCardsInWipLanes(totalWip.lanes) : 0;
 
+      const pillBase = 'display:inline-flex;align-items:center;border-radius:20px;padding:3px 12px;font-size:12px;font-weight:500;white-space:nowrap;line-height:1.4;';
+      const pillNeutral = pillBase + 'background:#f0f4f8;border:1px solid #e2e8f0;color:#4a5568;';
+      const pillRed = pillBase + 'background:#fdecea;border:1px solid #e9a0a0;color:#a32d2d;';
+      const pillAmber = pillBase + 'background:#fef3c7;border:1px solid #fbbf24;color:#854f0b;';
+
       const parts = [];
-      if (wipActive) parts.push(`<span><strong>Total WIP: ${wipCount}</strong></span>`);
+      if (wipActive) {
+        parts.push(`<span style="${pillNeutral}">Total WIP · ${wipCount}</span>`);
+      }
       if (sleActive) {
         const showEmojis = sle.showBadgeEmojis !== false;
-        const showBorder = sle.showBadgeBorder !== false;
         const breachedSymbol = showEmojis ? escHtml(sle.breachedEmoji || '🔴') : '▲';
         const approachingSymbol = showEmojis ? escHtml(sle.approachingEmoji || '⚠️') : '⚠';
-        const breachedStyle = 'color:#c0392b;' +
-          (showBorder ? ' outline:2px solid #c0392b; outline-offset:2px; border-radius:4px; padding:1px 6px;' : '');
-        const approachingStyle = 'color:#e67e22;' +
-          (showBorder ? ' outline:2px dashed #e67e22; outline-offset:2px; border-radius:4px; padding:1px 6px;' : '');
-        parts.push(`<span>SLE: ${sle.days}d</span>`);
-        parts.push(`<span style="${breachedStyle}">${breachedSymbol} ${over} breached</span>`);
-        parts.push(`<span style="${approachingStyle}">${approachingSymbol} ${approaching} approaching</span>`);
+        parts.push(`<span style="${pillNeutral}">SLE · ${sle.days}d</span>`);
+        parts.push(`<span style="${over > 0 ? pillRed : pillNeutral}">${breachedSymbol} ${over} breached</span>`);
+        parts.push(`<span style="${approaching > 0 ? pillAmber : pillNeutral}">${approachingSymbol} ${approaching} approaching</span>`);
       }
-
-      const bgColor = sleActive && over > 0 ? '#fdecea' : sleActive ? '#fff8e1' : '#ebf8ff';
-      const borderColor = sleActive && over > 0 ? '#c0392b' : sleActive ? '#f39c12' : '#bee3f8';
 
       const bar = existing || document.createElement('div');
       bar.id = 'vtb-enhancer-sle-bar';
-      Object.assign(bar.style, {
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: '10px',
-        padding: '6px 10px',
-        backgroundColor: bgColor,
-        border: `1px solid ${borderColor}`,
-        borderRadius: '4px',
-        fontSize: '12px',
-        fontWeight: '500',
-        marginLeft: '12px',
-        verticalAlign: 'middle',
-        lineHeight: '1.4',
-      });
+      bar.style.cssText = 'display:inline-flex;align-items:center;gap:6px;margin-left:12px;vertical-align:middle;align-self:center;';
       bar.innerHTML = parts.join('');
 
       if (!existing) {
         const label = document.querySelector('label.sn-navhub-title');
-        if (label && label.parentNode) {
-          label.parentNode.insertBefore(bar, label.nextSibling);
+        if (label) {
+          // Walk up from the label past at least one level, then continue until
+          // we find an ancestor whose parent is a horizontal flex container.
+          // That ancestor is the "title section" (board name + "Freeform Board"
+          // subtitle as a unit). Inserting the bar as a peer of the title section
+          // in the outer flex row lets the row's alignment center the bar across
+          // the full two-line height, matching the filter controls on the right.
+          let titleSection = label.parentElement && label.parentElement.parentElement;
+          while (titleSection && titleSection.parentElement && titleSection.parentElement !== document.body) {
+            try {
+              const ps = window.getComputedStyle(titleSection.parentElement);
+              const dir = ps.flexDirection || 'row';
+              if ((ps.display === 'flex' || ps.display === 'inline-flex') && !dir.includes('column')) break;
+            } catch (_) {}
+            titleSection = titleSection.parentElement;
+          }
+          const host = titleSection && titleSection.parentElement ? titleSection.parentElement : label.parentNode;
+          const ref  = titleSection && titleSection.parentElement ? titleSection : label;
+          host.insertBefore(bar, ref.nextSibling);
         }
       }
     }
@@ -1182,6 +1247,13 @@
           liveConfig.updateIndicator, VTBShared.DEFAULT_UPDATE_INDICATOR
         );
 
+        // Authoritative board total from the lane header counts, and how many
+        // cards are actually rendered. When ServiceNow has not finished
+        // rendering every lane's cards, renderedCardCount < boardCardTotal and
+        // all tallies above are still partial — the popup surfaces this.
+        const boardCardTotal = countAllLaneCards();
+        const renderedCardCount = cards.length;
+
         sendResponse({
           boardLoaded,
           boardId,
@@ -1203,6 +1275,8 @@
           approachingEmoji: sle ? (sle.approachingEmoji || '⚠️') : '⚠️',
           breachedEmoji: sle ? (sle.breachedEmoji || '🔴') : '🔴',
           updateThresholdDays: threshold,
+          boardCardTotal,
+          renderedCardCount,
         });
       });
       return true; // async — keep the response channel open for the loadConfig callback

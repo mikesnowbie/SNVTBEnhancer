@@ -103,7 +103,7 @@ document.addEventListener('DOMContentLoaded', function () {
   }
 
   function renderSleToUI(sle) {
-    const s = sle || { enabled: true, days: 0, approachingDays: 3, showSummary: true, showBadgeEmojis: true, showBadgeBorder: true, approachingEmoji: '⚠️', breachedEmoji: '🔴' };
+    const s = sle || { enabled: false, days: 7, approachingDays: 3, showSummary: true, showBadgeEmojis: true, showBadgeBorder: true, approachingEmoji: '⚠️', breachedEmoji: '🔴' };
     sleToggle.checked = s.enabled !== false;
     sleDaysInput.value = s.days;
     sleApproachingInput.value = s.approachingDays;
@@ -120,7 +120,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const approachingDays = parseInt(sleApproachingInput.value, 10);
     return {
       enabled: sleToggle.checked,
-      days: isNaN(days) || days < 0 ? 0 : days,
+      days: isNaN(days) || days < 1 ? 7 : days,
       approachingDays: isNaN(approachingDays) || approachingDays < 0 ? 3 : approachingDays,
       showSummary: sleSummaryToggle.checked,
       showBadgeEmojis: sleEmojiToggle.checked,
@@ -412,7 +412,7 @@ document.addEventListener('DOMContentLoaded', function () {
     boardSelect.innerHTML = '';
     const defaultOption = document.createElement('option');
     defaultOption.value = '';
-    defaultOption.textContent = 'Default (All Boards)';
+    defaultOption.textContent = 'Global Defaults';
     boardSelect.appendChild(defaultOption);
     Object.keys(fullConfig.boards).forEach((id) => {
       const opt = document.createElement('option');
@@ -504,6 +504,16 @@ document.addEventListener('DOMContentLoaded', function () {
     const enableAgeBadgePrefix = ageBadgePrefixToggle.checked;
     const ageBadgePrefix = (ageBadgePrefixInput.value || '').trimEnd();
     if (currentBoardId) {
+      if (sleToggle.checked) {
+        const rawSleDays = parseInt(sleDaysInput.value, 10);
+        if (isNaN(rawSleDays) || rawSleDays < 1) {
+          statusDiv.textContent = 'SLE target must be greater than 0 when SLE is enabled.';
+          sleDaysInput.focus();
+          return;
+        }
+      }
+      const sleValues = getSleFromInputs();
+
       if (!fullConfig.boards[currentBoardId]) {
         fullConfig.boards[currentBoardId] = {
           name: boardSelect.options[boardSelect.selectedIndex].text,
@@ -518,7 +528,7 @@ document.addEventListener('DOMContentLoaded', function () {
       fullConfig.boards[currentBoardId].updateIndicator = indicatorValue;
       fullConfig.boards[currentBoardId].enableWipLanes = wipLanesToggle.checked;
       fullConfig.boards[currentBoardId].wipLanes = getWipLanesFromUI();
-      fullConfig.boards[currentBoardId].sle = getSleFromInputs();
+      fullConfig.boards[currentBoardId].sle = sleValues;
       fullConfig.boards[currentBoardId].totalWip = {
         enabled: totalWipToggle.checked,
         lanes: getTotalWipFromUI(),
