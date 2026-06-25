@@ -126,6 +126,14 @@
     .import-status { font-size: 11px; margin-top: 7px; text-align: center; }
     .import-status.success { color: #38a169; }
     .import-status.error { color: #c53030; }
+    .partial-notice {
+      color: #92400e;
+      background: #fffbeb;
+      border-color: #fcd34d;
+      font-size: 12px;
+      line-height: 1.4;
+      text-align: center;
+    }
   </style>
 </head>
 <body>
@@ -144,6 +152,8 @@
   </div>
 
   <div id="dashboardArea" style="display:none">
+    <div class="section partial-notice" id="partialNotice" style="display:none"></div>
+
     <div class="section">
       <div class="section-title">Total WIP</div>
       <div id="wipArea" class="state-msg">Loading…</div>

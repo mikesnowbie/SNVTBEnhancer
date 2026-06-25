@@ -59,4 +59,11 @@ test('popup freshness total counts every in-DOM card without scrolling', async (
   // The popup total must already equal every indicator drawn in the DOM —
   // proving the count does not depend on the user scrolling hidden lanes.
   expect(popup.freshCount + popup.staleCount).toBe(dom.indicatorCount);
+
+  // The authoritative board total comes from the lane header counts and must
+  // cover every rendered card. On a fully-rendered board the two are equal,
+  // so the popup shows no "still loading" partial notice.
+  expect(popup.boardCardTotal).toBeGreaterThan(0);
+  expect(popup.renderedCardCount).toBeLessThanOrEqual(popup.boardCardTotal);
+  expect(popup.renderedCardCount).toBe(dom.totalCards);
 });

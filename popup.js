@@ -134,7 +134,24 @@
       `</div>`;
   }
 
+  function renderPartialNotice(data) {
+    const el = document.getElementById('partialNotice');
+    const total = typeof data.boardCardTotal === 'number' ? data.boardCardTotal : 0;
+    const rendered = typeof data.renderedCardCount === 'number' ? data.renderedCardCount : 0;
+    // Only flag when we have a trustworthy board total and the board has not
+    // rendered all of its cards yet — every tally below is partial until then.
+    if (total > 0 && rendered < total) {
+      el.textContent =
+        `⏳ Showing ${rendered} of ${total} cards. ServiceNow loads cards as you ` +
+        `scroll — scroll through every lane to load them all for complete totals.`;
+      el.style.display = '';
+    } else {
+      el.style.display = 'none';
+    }
+  }
+
   function renderDashboard(data) {
+    renderPartialNotice(data);
     renderWipArea(data);
     renderAgeArea(data);
     renderFreshnessArea(data);

@@ -748,7 +748,11 @@
     // lane) for the designated WIP lanes and sums them. This is more reliable than counting
     // card DOM elements ourselves because ServiceNow tracks all cards in each lane — including
     // those hidden off-screen by the virtual scroll — and keeps this count current.
-    function countCardsInWipLanes(wipLaneNames) {
+    // Sums the per-lane card counts ServiceNow renders in each lane header for
+    // every lane whose name passes includeLane(). The lane header count reflects
+    // all cards in the lane — including those not yet rendered by the virtual
+    // scroll — so it is the authoritative board total even before cards load.
+    function sumLaneCardCounts(includeLane) {
       let total = 0;
 
       for (const sel of LANE_TITLE_SELECTORS) {
@@ -756,7 +760,7 @@
         try {
           document.querySelectorAll(sel).forEach((titleEl) => {
             const name = getLaneTitleText(titleEl);
-            if (!name || !wipLaneNames.includes(name)) return;
+            if (!name || !includeLane(name)) return;
 
             // Walk up from the lane title to find the lane header container that also
             // holds the count element as a sibling. Stop before climbing above the lane
@@ -783,6 +787,18 @@
         if (anyFound) break;
       }
       return total;
+    }
+
+    function countCardsInWipLanes(wipLaneNames) {
+      return sumLaneCardCounts((name) => wipLaneNames.includes(name));
+    }
+
+    // Authoritative total card count across every lane, from the lane header
+    // counts. Used to detect when the board has not finished rendering all
+    // cards (rendered card wrappers < this total), so the popup can flag that
+    // its tallies are still partial. Returns 0 if no lane counts are found.
+    function countAllLaneCards() {
+      return sumLaneCardCounts(() => true);
     }
 
     // Renders (or removes) the summary bar near the board title for SLE and/or Total WIP.
@@ -1184,6 +1200,13 @@
           liveConfig.updateIndicator, VTBShared.DEFAULT_UPDATE_INDICATOR
         );
 
+        // Authoritative board total from the lane header counts, and how many
+        // cards are actually rendered. When ServiceNow has not finished
+        // rendering every lane's cards, renderedCardCount < boardCardTotal and
+        // all tallies above are still partial — the popup surfaces this.
+        const boardCardTotal = countAllLaneCards();
+        const renderedCardCount = cards.length;
+
         sendResponse({
           boardLoaded,
           boardId,
@@ -1205,6 +1228,8 @@
           approachingEmoji: sle ? (sle.approachingEmoji || '⚠️') : '⚠️',
           breachedEmoji: sle ? (sle.breachedEmoji || '🔴') : '🔴',
           updateThresholdDays: threshold,
+          boardCardTotal,
+          renderedCardCount,
         });
       });
       return true; // async — keep the response channel open for the loadConfig callback
