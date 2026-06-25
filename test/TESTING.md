@@ -81,6 +81,7 @@ Runs `test/explore.js` — a non-Playwright Node script that navigates to a boar
 | `cases/04-freshness.js` | Freshness indicators (✅/❌) appear next to each card's last-updated timestamp |
 | `cases/05-summary-bar.js` | SLE summary bar appears when SLE is enabled; is absent when disabled |
 | `cases/06-sle-breach.js` | Breached cards show the breach emoji and red outline; no indicators when SLE is disabled |
+| `cases/07-freshness-count-complete.js` | Popup freshness total counts every in-DOM card at load (no scrolling needed), even when most lanes are virtual-scroll hidden |
 
 ## Source Files vs. Generated Artifacts
 

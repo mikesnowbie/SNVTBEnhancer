@@ -107,8 +107,7 @@
       `<div class="stat-row">` +
       `<span>${escHtml(data.staleEmoji)} Stale</span><strong>${data.staleCount}</strong>` +
       `</div>` +
-      `<div class="stat-hint">Stale after ${data.updateThresholdDays} days without update</div>` +
-    `<div class="stat-hint">Counts update as ServiceNow loads each lane — scroll through all lanes for a complete total.</div>`;
+      `<div class="stat-hint">Stale after ${data.updateThresholdDays} days without update</div>`;
   }
 
   function renderSleArea(data) {

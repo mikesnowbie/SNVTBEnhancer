@@ -108,6 +108,31 @@ export async function setConfig(context, extensionId, cfg) {
   await page.close();
 }
 
+// Sends the same VTB_POPUP_QUERY the toolbar popup uses and returns the
+// content script's response (board health totals). Runs from an extension
+// page so chrome.tabs is available. The extension has no "tabs" permission,
+// so tab URLs are unreadable — instead we message every tab and take the one
+// frame that answers (only the inner board frame, which has a boardId, does).
+export async function queryPopup(context, extensionId) {
+  const page = await context.newPage();
+  await page.goto(`chrome-extension://${extensionId}/options.html`);
+  const response = await page.evaluate(async () => {
+    const tabs = await chrome.tabs.query({});
+    for (const t of tabs) {
+      const resp = await new Promise(resolve => {
+        chrome.tabs.sendMessage(t.id, { type: 'VTB_POPUP_QUERY' }, r => {
+          if (chrome.runtime.lastError) resolve(null);
+          else resolve(r);
+        });
+      });
+      if (resp && typeof resp.freshCount === 'number') return resp;
+    }
+    return null;
+  });
+  await page.close();
+  return response;
+}
+
 // Navigate directly to a known board URL. If the session has expired and auth
 // is required, waits up to 5 minutes for the user to log in before continuing.
 export async function navigateToBoard(context, url) {
