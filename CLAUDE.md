@@ -15,6 +15,20 @@
 - `chrome.storage.sync` for persisting per-board and global configuration.
 - The extension runs on URLs matching `*://*.service-now.com/*vtb.do*` and `*://*.service-now.com/*agile_board.do*`.
 
+## ServiceNow VTB DOM Architecture (important gotchas)
+
+These are non-obvious facts about how ServiceNow renders Visual Task Boards. They override naive assumptions and have each caused real bugs — read before touching card/lane/freshness logic in `content.js`.
+
+- **The board lives in a nested iframe.** The Now navigation shell loads the actual board in an inner `$vtb.do` (or `$agile_board.do`) iframe. The content script is injected with `all_frames: true` and runs inside that inner frame; the outer shell URL (`/now/nav/...`) has no board id. This is why `agile_board.do` boards "just work" — their inner frame is still `$vtb.do`. The test harness mirrors this: `getVtbFrame()` finds the inner frame, not the main frame.
+- **Off-screen cards stay in the DOM as `display:none`** (ServiceNow's `vtb-viewport-on-scroll` virtual scroll). They are *not* removed, so `document.querySelectorAll('.vtb-card-component-wrapper')` returns every card on most boards. `processExistingCards()` therefore enhances all of them at load.
+- **Per-card timestamps load lazily.** `sys_updated_on` is only bound onto a card when that card actually renders. On large/slow boards some cards are not yet rendered, so their freshness can't be computed until they are. The popup flags this via `boardCardTotal` (authoritative) vs `renderedCardCount` (see the partial-load notice in `popup.js`).
+- **Lane headers and lane bodies are SEPARATE DOM subtrees.** ServiceNow renders the header row and the card columns as parallel `ng-repeat` branches that share a `v-lane-index` attribute (and a *duplicate* `id="lane_<sysid>"`). Consequences:
+  - A card's body subtree does **not** contain its lane header, so you cannot map a card to its lane by DOM containment ("walk up to the single header") on these boards.
+  - `getBoundingClientRect`-based (geometric) lane matching returns a zero-size rect for `display:none` cards, so it silently fails for every off-screen card. This caused WIP-lane freshness to drop hidden cards.
+  - **Resolve a card's lane structurally instead:** walk up to the card's lane container and read `v-lane-index` (map it to a name via the header titles — see `getLaneIndexNameMap()`), or the lane body's `aria-label="Cards in lane: <name>"`. These work regardless of visibility. `findCardLane()` does this first, then falls back to containment, then geometry.
+- **Lane header counts are the authoritative per-lane total.** `.vtb-lane-header-count` reflects all cards in the lane including unrendered ones, so summing them (`countAllLaneCards()` / `countCardsInWipLanes()`) is more reliable than counting card DOM elements.
+- **The AngularJS model is unreachable from the content script.** `window.angular` and lane/card scopes live in the page's *main* world; the content script runs in the *isolated* world and cannot read them. Diagnostics via Playwright `frame.evaluate()` run in the main world and *can* see `angular` — do not assume the extension has the same access. Always derive runtime data from the DOM, not the Angular model.
+
 ## Key Files
 
 | File | Purpose |
@@ -61,7 +75,7 @@ The project has a **Playwright testing harness** that drives a real Microsoft Ed
 ```bash
 npm install              # once per machine after pulling
 npm run test:explore     # diagnostic: screenshot + DOM dump to test-local/output/
-npm run test:assert      # run all six assertion test cases
+npm run test:assert      # run all assertion test cases (test/cases/)
 ```
 
 The board URL is stored in **`test-local/config.json`** (gitignored — never committed):
@@ -86,7 +100,7 @@ The board URL is stored in **`test-local/config.json`** (gitignored — never co
 
 ### Adding a new test case
 
-Create `test/cases/07-your-feature.js`, import from `@playwright/test` and `../helpers.js`, use `helpers.launchEdge()` / `helpers.waitForBoardEnhanced()` / `helpers.setConfig()`, and call `context.close()` in `afterAll`. See `test/TESTING.md` for the full pattern.
+Create `test/cases/NN-your-feature.js` (next number in sequence), import from `@playwright/test` and `../helpers.js`, use `helpers.launchEdge()` / `helpers.waitForBoardEnhanced()` / `helpers.setConfig()` / `helpers.queryPopup()`, and call `context.close()` in `afterAll`. See `test/TESTING.md` for the full pattern.
 
 When making changes, document what was manually verified (or which test cases passed) in the PR body.
 
